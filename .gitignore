@@ -1,0 +1,30 @@
+# Old source files kept locally for reference
+/calibration.py
+/directory.py
+/main.py
+/observation.py
+/plot.py
+/simulation.py
+
+# Waterinfo work not ready for publication
+/waterinfo.py
+/waterinfo/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Old results
+/evaluation/plot/*
+!/evaluation/plot/.gitkeep
+
+# Observation data
+/observation/observations/*
+!/observation/observations/.gitkeep
+
+# Simulation output
+/simulation/simulationoutput/*
+!/simulation/simulationoutput/.gitkeep
+
+# configure simulation thesis
+/simulation/simulationmasters (backup).xlsx
