@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-""" 
+"""Step-wise calibration protocol: Evaluate submodel performance and overall model performance.
 
 Created on Tue Mar  3 12:35:24 2026
 @author: Way
@@ -9,10 +9,10 @@ import pandas as pd
 import numpy as np
 from observation import Observation
 from simulation import Simulation
-from plot import plotET_ActualvsPotential, plotET_ratio, plotET_soilwatervariation
-from plot import plotsoil_evaluation, plotsoil_report
-from plot import plotrunoff_evaluation, plotrunoff_report
-from plot import plotflow_timeseries, plotflow_waterbalance
+from plot import plot_et_actual_vs_potential, plot_et_ratio, plot_soil_water_depth_multi
+from plot import plot_soil_evaluation, plot_soil_report
+from plot import plot_runoff_evaluation, plot_runoff_report
+from plot import plot_flow_timeseries, plot_flow_waterbalance
 
 #%% config.py
 # Used to filter rows on configuration excels
@@ -178,7 +178,7 @@ def _convert_rate_to_depth(flow, catchment_size, frequency):
     
     Parameters
     ----------
-    flowrate : pandas.Series
+    flowr : pandas.Series
         Flow rate time-series in m3/s
     catchmentsize : float
         Catchment area in m2
@@ -254,114 +254,115 @@ def _calculate_smax_triangular(cmin, cmax):
     Smax = cmin + ((cmax - cmin) / 2)
     return Smax
 
-def _extract_peak_values(flow_periods, df_obs, df_sim):
-    """Extract the peak (maximum) observed value and the simulated value at that timestamp, for each flow period block. 
+def _extract_maximum_values(flow_periods, obs_series, sim_series):
+    """Extract maximum observed value i.e. runoff/soil water depth and the simulated value at that timestamp, 
+    for each flow period block. 
 
     Parameters
     ----------
-    flowperiods : list of tuples (int, int)
+    flow_periods : list of tuples (int, int)
         (start, end) pairs returned by _slowflowperiod or _quickflowperiod
-    df_obs, df_sim : pandas.Series
+    obs_series, sim_series : pandas.Series
         Observed and simulated time-series from which the peak value is extracted from
 
     Returns
     -------
     df : pandas.DataFrame
-        Columns: peak_time, obs_peak, sim_peak - one row per each flow period block.
+        Columns: peak_time, obs, sim - one row per each flow period block.
     """
     
     result = [] 
     
     for start, end in flow_periods:
-        obs_period = df_obs.iloc[start:end+1] # .iloc[] is a method for integers (datatype of start, end)
-        peak_time  = obs_period.idxmax()      # in pandas.Timestamp format
-        obs_peak   = obs_period.max()
+        obs_period    = obs_series.iloc[start:end+1] # .iloc[] is a method for integers (datatype of start, end)
+        max_timestamp = obs_period.idxmax()          # in pandas.Timestamp format
+        obs_max       = obs_period.max()
 
-        sim_peak = df_sim.loc[peak_time]      # .loc[] is a method for pandas.Timestamp or pandas.Datetime (dataype of peak_time)
+        sim_max = sim_series.loc[max_timestamp]      # .loc[] is a method for pandas.Timestamp or pandas.Datetime (dataype of max_timestamp)
         
         result.append({
-            "peak_time": peak_time,
-            "obs_peak": obs_peak,
-            "sim_peak": sim_peak
+            "max_timestamp": max_timestamp,
+            "obs": obs_max,
+            "sim": sim_max
             })
 
     df = pd.DataFrame(result)
     return df
         
-def _extract_low_values(flow_periods, df_obs, df_sim):
-    """ Extract the observed and simulated value at the end of each flow period block (the smallest value/low point). 
+def _extract_minimum_values(flow_periods, obs_series, sim_series):
+    """ Extract the minimum observed and simulated value  at the end of each flow period block (the smallest value/low point). 
 
     Parameters
     ----------
-    flowperiods : list of tuples (int, int)
+    flow_periods : list of tuples (int, int)
         (start, end) pairs returned by _slowflowperiod or _quickflowperiod
-    df_obs, df_sim : pandas.Series
+    obs_series, sim_series : pandas.Series
         Observed and simulated time-series from which the peak value is extracted from
 
     Returns
     -------
     df : pandas.DataFrame
-        Columns: low_time, obs_low, sim_low - one row per each flow period block.
+        Columns: low_time, obs, sim - one row per each flow period block.
     """
     result = []
     
     for start, end in flow_periods:
         
-        low_time = df_obs.index[end]   # in pandas.Timestamp format
-        obs_low = df_obs.iloc[end]
-        sim_low = df_sim.iloc[end]
+        min_timestamp = obs_series.index[end]   # in pandas.Timestamp format
+        obs_min = obs_series.iloc[end]
+        sim_min = sim_series.iloc[end]
         
         result.append({
-            "low_time": low_time,
-            "obs_low": obs_low,
-            "sim_low": sim_low
+            "min_timestamp": min_timestamp,
+            "obs": obs_min,
+            "sim": sim_min
             })
 
     df = pd.DataFrame(result)
     return df
 
-def _calculate_volume_values(flow_periods, df_obs, df_sim):
-    """Calculate the accumulated volume of simulated and observed time-series for each flow period block,
+def _calculate_cumulative_values(flow_periods, obs_series, sim_series):
+    """Calculate the cumulative values i.e. runoff/recharge of simulated and observed time-series for each flow period block,
     along with the midpoint timestamp for plotting    
 
     Parameters
     ----------
-    flowperiods : list of tuples (int, int)
+    flow_periods : list of tuples (int, int)
         (start, end) pairs returned by _slowflowperiod or _quickflowperiod
-    df_obs, df_sim : pandas.Series
-        Observed and simulated time-series from which the accumulated value is calculated from
+    obs_series, sim_series : pandas.Series
+        Observed and simulated time-series from which the cumulative value is calculated from
 
     Returns
     -------
     df : pandas.DataFrame
-        Columns: mid_flowperiod, obs_volume, sim_volume - one row per each flow period block.
+        Columns: mid_flow_period, obs, sim - one row per each flow period block.
     """
     result = []
     
     for start, end in flow_periods:
         
-        obs_volume = df_obs.iloc[start:end+1].sum() # end+1 because .iloc[] slicing excludes the end value
-        sim_volume = df_sim.iloc[start:end+1].sum()
+        obs_cumulative_value = obs_series.iloc[start:end+1].sum() # end+1 because .iloc[] slicing excludes the end value
+        sim_cumulative_value = sim_series.iloc[start:end+1].sum()
         
         # midpoint is used as the x-coordinate (midpoint of each flow period block) when plotting the volume on the graph 
         midpoint = int(start + (end - start) / 2) # int() because midpoint value requires integer and division can produce float
-        position = df_obs.index[midpoint]
+        position = obs_series.index[midpoint]
         
         result.append({
-            "mid_flowperiod": position,
-            "obs_volume": obs_volume,
-            "sim_volume": sim_volume
+            "mid_flow_period": position,
+            "obs": obs_cumulative_value,
+            "sim": sim_cumulative_value
             })
         
     df = pd.DataFrame(result)
     return df
 
-def _transform_boxcox(df_obs, df_sim, λ):
+def _transform_boxcox(obs_df, sim_df, λ):
     """ Apply a Box-cox transformation to the observed and simulated data.
     
     Parameters
     ----------
-    df_obs, df_sim: pandas.DataFrame
+    obs_df, sim_df: pandas.DataFrame
         Observed and simulated data to transform.
     λ : float
         Box-cox transformation parameter. Value ranges between 0 to 1 and must not be 0
@@ -371,8 +372,8 @@ def _transform_boxcox(df_obs, df_sim, λ):
     BC_obs_df, BC_sim_df : pandas.DataFrame
         Box-cox transformed observed and simulated data.
     """
-    BC_obs_df = ((df_obs ** λ) - 1) / λ
-    BC_sim_df = ((df_sim ** λ) - 1) / λ
+    BC_obs_df = ((obs_df ** λ) - 1) / λ
+    BC_sim_df = ((sim_df ** λ) - 1) / λ
     
     return BC_obs_df, BC_sim_df
 
@@ -434,7 +435,7 @@ def _get_obs_label(flow_type):
 #%% Public Functions
 
 def evaluate_recession(catchment, period_id, start, end, flow_type, directories):
-    """Evaluate simulated flow recession behavior against WETSPRO-filtered flow
+    """Evaluate routing submodels' performance using flow recession characteristics in flow time-series as a calibration target.
     
     Parameters
     ----------
@@ -455,14 +456,14 @@ def evaluate_recession(catchment, period_id, start, end, flow_type, directories)
     Returns
     -------
     None
-        Generate recession plots, and does not return a value
+        Generate recession plots for routing submodel evaluation.
     """
-    # 1 Observation
+    ## 1 Observation
     obs_row = config_obs[config_obs["catchment"] == catchment].iloc[0]
     obs    = Observation(obs_row, directories.obs)
     obs_F_m3s = _get_flow(obs, flow_type, start, end)
     
-    # 2 Simulation
+    ## 2 Simulation
     sim_rows = config_sim[
         (config_sim["catchment"] == catchment) &            # passed in from main.py's command line argument
         (config_sim["period_id"] == period_id) &            # idem
@@ -473,22 +474,20 @@ def evaluate_recession(catchment, period_id, start, end, flow_type, directories)
          
     for _, sim_row in sim_rows.iterrows():
         sim = Simulation(sim_row, directories.sim)
-        sim_name = sim.name
+        sim_id = sim.id
         sim_F_m3s = _get_flow(sim, flow_type, start, end)
         
-        obs_label = _get_obs_label(flow_type)
-        
-        plotflow_timeseries(obs_F_m3s = obs_F_m3s, 
-                            sim_F_m3s = sim_F_m3s, 
-                            obslabel = obs_label,
-                            years_per_figure=3,
-                            flowtype=flow_type, 
-                            catchment = catchment, simname = sim_name, period_id = period_id, 
-                            plotflow_timeseries_path = directories.recession[flow_type],
-                            plot_statistics=False)
+        ## 3 Plot
+        plot_flow_timeseries(obs_F_m3s = obs_F_m3s, sim_F_m3s = sim_F_m3s, 
+                             years_per_figure = 3, 
+                             flow_type = flow_type, obs_label = _get_obs_label(flow_type), 
+                             catchment = catchment, sim_id = sim_id, period_id = period_id, 
+                             output_path = directories.recession[flow_type], 
+                             show_statistics=False)
 
-def evaluate_eta(catchment, period_id, start, end, directories):
-    """Evaluate 
+def evaluate_et(catchment, period_id, start, end, directories):
+    """Evaluate ET submodel performance using seasonal ET ratio as a calibration target, 
+    with soil water depth as a supporting calibration target.
     
     Parameters
     ----------
@@ -500,15 +499,14 @@ def evaluate_eta(catchment, period_id, start, end, directories):
         must match entry in evaluation/config_periods.xlsx (sheet: simulation_periods).
     start, end : pandas.TimeStamp
         Start and end of period where simulation is evaluated.
-    directories : TYPE
-    Directories
+    directories : Directories
         Object containing paths for input data and output plots, used here via
         directories.obs, directories.sim, and directories.ET.
 
     Returns
     -------
     None
-        Generate three ET-related plots, and does not return a value
+        Save three ET-related plots for ET submodel evaluation.
     
     Notes
     -----
@@ -519,7 +517,7 @@ def evaluate_eta(catchment, period_id, start, end, directories):
     ET_ratio_dict    = {}
     SWd_dict  = {}
     
-    # 1 Observation
+    ## 1 Observation
     obs_row = config_obs[config_obs["catchment"] == catchment].iloc[0]
     obs     = Observation(obs_row, directories.obs)
 
@@ -534,7 +532,7 @@ def evaluate_eta(catchment, period_id, start, end, directories):
     obs_P_mmmonth   = obs_P_mmdt.resample("M").sum()          
     obs_Q_mmmonth   = obs_Q_mmdt.resample("M").sum()          
     
-    # 2 Simulation 
+    ## 2 Simulation 
     sim_rows = config_sim[
         (config_sim["catchment"] == catchment) &     # passed in from main.py's command line argument
         (config_sim["period_id"] == period_id) &     # idem
@@ -546,17 +544,17 @@ def evaluate_eta(catchment, period_id, start, end, directories):
         sim = Simulation(sim_row, directories.sim)
         sim_id = sim.parameters["ET_params1"]        # ET exponent is used as scenario identifier 
         
-        # 2.1 ETa
+        ## 2.1 ETa
         sim_smd = sim.smd.loc[start:end]
         sim_ETa_mmday   = sim.ETa_mmday.loc[start:end]
         sim_ETa_mmmonth = sim_ETa_mmday.resample("M").sum()
         ETa_dict[sim_id] = sim_ETa_mmmonth      
         
-        # 2.2 Actual to Potential Evapotranspiration Ratio (ET ratio)
+        ## 2.2 Actual to potential evapotranspiration ratio (ET ratio)
         ET_ratio = sim_ETa_mmmonth / obs_ETp_mmmonth
         ET_ratio_dict[sim_id] = ET_ratio
         
-        # 2.3 Soil Water Depth (SWd) Variation
+        ## 2.3 Total storage capacity (Smax) or Mean storage capacity over the catchment (c̄) 
         soil_function = sim.parameters["soil_function"]
         if soil_function == "pareto":        
             Smax = _calculate_smax_pareto(sim.parameters["soil_params1"], sim.parameters["soil_params2"], sim.parameters["soil_params3"])
@@ -564,18 +562,55 @@ def evaluate_eta(catchment, period_id, start, end, directories):
             Smax = _calculate_smax_rectangular(sim.parameters["soil_params1"], sim.parameters["soil_params2"])
         elif soil_function == "triangular":
             Smax = _calculate_smax_triangular(sim.parameters["soil_params1"], sim.parameters["soil_params2"])
-        smd_initial = sim_smd.loc[start:end].iloc[0]
-        SWd_initial = Smax * (1-smd_initial)
-        SWd = SWd_initial + (obs_P_mmmonth - obs_Q_mmmonth - sim_ETa_mmmonth).cumsum()
+        
+        ## 2.4 Soil water depth (SWd)
+        initial_smd = sim_smd.loc[start:end].iloc[0]
+        initial_SWd = Smax * (1 - initial_smd)
+        SWd = initial_SWd + (obs_P_mmmonth - obs_Q_mmmonth - sim_ETa_mmmonth).cumsum()
         SWd_dict[sim_id] = SWd
     
-    plotET_ActualvsPotential(obs_ETp_mmmonth, ETa_dict, obs.catchment, period_id, directories.ET)
-    plotET_ratio(ET_ratio_dict, obs.catchment, start, end, period_id, directories.ET)
-    plotET_soilwatervariation(SWd_dict, obs.catchment, start, end, period_id, directories.ET)
+    ## 3 Plot
+    plot_et_actual_vs_potential(ETp_series = obs_ETp_mmmonth, 
+                                ETa_dict = ETa_dict, 
+                                catchment = obs.catchment, 
+                                period_id = period_id,
+                                output_path = directories.ET)
+    plot_et_ratio(ET_ratio_dict = ET_ratio_dict,
+                  catchment = obs.catchment, 
+                  start = start, end = end, 
+                  period_id = period_id, 
+                  output_path = directories.ET)
+    plot_soil_water_depth_multi(SWd_dict = SWd_dict, 
+                                catchment = obs.catchment, 
+                                start = start, end = end, 
+                                period_id = period_id, 
+                                output_path = directories.ET)
 
 def evaluate_soil(catchment, period_id, start, end, directories):
+    """Evaluate submodel(s) related to soil moisture dynamics using event-based soil water depth as a calibration target.
+    When standard/demand-based method is selected, soil water depth is a calibration target for soil storage and recharge submodels.
+    When splitting method is selected, soil water depth is primarily the calibration target for soil storage model.
     
-    # 1 Observation
+    Parameters
+    ----------
+    catchment : str
+        Catchment name associated with the simulation to be evaluated.
+        must match entry in evaluation/config_periods.xlsx (sheet: simulation_periods).
+    period_id : str
+        Unique identifier for the simulated period to evaluate.
+        must match entry in evaluation/config_periods.xlsx (sheet: simulation_periods).
+    start, end : pandas.TimeStamp
+        Start and end of period where simulation is evaluated.
+    directories : Directories
+        Object containing paths for input data and output plots, used here via
+        directories.obs, directories.sim, and directories.soil.
+
+    Returns
+    -------
+    None.
+        Generate 
+    """
+    ## 1 Observation
     obs_row = config_obs[config_obs["catchment"] == catchment].iloc[0]
     obs     = Observation(obs_row, directories.obs)
     
@@ -584,11 +619,11 @@ def evaluate_soil(catchment, period_id, start, end, directories):
   
     obs_Q_mmdt = _convert_rate_to_depth(obs_Q_m3s, obs.catchment_size, obs.Q_freq) 
     
-    obs_P_mmhr       = obs_P_mmdt.resample("H").sum()          # for soil water variation
-    obs_Q_mmhr       = obs_Q_mmdt.resample("H").sum()  # for soil water variation
+    obs_P_mmhr       = obs_P_mmdt.resample("H").sum()          
+    obs_Q_mmhr       = obs_Q_mmdt.resample("H").sum()  
     obs_PminQ_mmhr   = obs_P_mmhr - obs_Q_mmhr
     
-    # 2 Simulation 
+    ## 2 Simulation 
     sim_rows = config_sim[
         (config_sim["catchment"] == catchment) &
         (config_sim["period_id"] == period_id) &
@@ -599,12 +634,12 @@ def evaluate_soil(catchment, period_id, start, end, directories):
     for _, sim_row in sim_rows.iterrows():
         sim = Simulation(sim_row, directories.sim)
         
-        sim_name = sim.name
+        sim_id = sim.id
         sim_λSWd = sim.λSWd
         sim_ETa_mmhr = sim.ETa_mmday.loc[start:end] / 24
         sim_smd = sim.smd.loc[start:end]
         
-        # 2.1 Observed Soil Water Depth (SWd) Variation
+        ## 2.1 Total storage capacity (Smax) or mean storage capacity over the catchment (c̄) 
         soil_function = sim.parameters["soil_function"]
         if soil_function == "pareto":        
             Smax = _calculate_smax_pareto(sim.parameters["soil_params1"], sim.parameters["soil_params2"], sim.parameters["soil_params3"])
@@ -613,57 +648,83 @@ def evaluate_soil(catchment, period_id, start, end, directories):
         elif soil_function == "triangular":
             Smax = _calculate_smax_triangular(sim.parameters["soil_params1"], sim.parameters["soil_params2"])
         
-        smd_initial = sim_smd.iloc[0]
-        SWd_initial = Smax * (1-smd_initial)
-        obs_SWd = SWd_initial + (obs_P_mmhr - obs_Q_mmhr - sim_ETa_mmhr).cumsum()
+        ## 2.2 Observed soil water depth (SWd)
+        initial_smd = sim_smd.iloc[0]
+        initial_SWd = Smax * (1 - initial_smd)
+        obs_SWd = initial_SWd + (obs_P_mmhr - obs_Q_mmhr - sim_ETa_mmhr).cumsum()
         
-        # 2.2 Simulated Soil Water Depth (SWd) Variation
+        ## 2.2 Simulated soil water depth (SWd)
         sim_SWd = Smax * (1-sim_smd)
         
-        # 2.3 Event-based (Slow Flow Event) SWd Values
+        ## 2.3 Event-based (slow flow event) soil water depth
         slowflow_periods = _get_slowflow_periods(catchment, period_id, obs_PminQ_mmhr) # use any related timeseries to count index
-        SWd_peaks = _extract_peak_values(slowflow_periods, obs_SWd, sim_SWd)
-        SWd_lows  = _extract_low_values(slowflow_periods, obs_SWd, sim_SWd)
+        SWd_maxima = _extract_maximum_values(slowflow_periods, obs_SWd, sim_SWd)
+        SWd_minima = _extract_minimum_values(slowflow_periods, obs_SWd, sim_SWd)
         
-        # 2.4 Box-cox Transformed, Event-based SWd Values
-        BC_obs_SWd_peak, BC_sim_SWd_peak = _transform_boxcox(SWd_peaks["obs_peak"], SWd_peaks["sim_peak"], sim_λSWd)
-        SWd_peaks["BC_obs_peak"] = BC_obs_SWd_peak
-        SWd_peaks["BC_sim_peak"] = BC_sim_SWd_peak
+        ## 2.4 Box-cox transformed, event-based soil water depth
+        BC_obs, BC_sim = _transform_boxcox(SWd_maxima["obs"], SWd_maxima["sim"], sim_λSWd)
+        SWd_maxima["BC_obs"] = BC_obs
+        SWd_maxima["BC_sim"] = BC_sim
         
-        BC_obs_SWd_low, BC_sim_SWd_low = _transform_boxcox(SWd_lows["obs_low"], SWd_lows["sim_low"], sim_λSWd)
-        SWd_lows["BC_obs_low"] = BC_obs_SWd_low
-        SWd_lows["BC_sim_low"] = BC_sim_SWd_low
+        BC_obs, BC_sim = _transform_boxcox(SWd_minima["obs"], SWd_minima["sim"], sim_λSWd)
+        SWd_minima["BC_obs"] = BC_obs
+        SWd_minima["BC_sim"] = BC_sim
         
-        # 2.5 RMSE
-        SWd_peaks["residuals"] = SWd_peaks["BC_obs_peak"] - SWd_peaks["BC_sim_peak"]
-        RMSE_peaks = np.sqrt( np.mean(SWd_peaks["residuals"] ** 2) )
+        ## 2.5 RMSE
+        SWd_maxima["BC_residuals"] = SWd_maxima["BC_obs"] - SWd_maxima["BC_sim"]
+        RMSE_BC_maxima = np.sqrt( np.mean(SWd_maxima["BC_residuals"] ** 2) )
         
-        SWd_lows["residuals"] = SWd_lows["BC_obs_low"] - SWd_lows["BC_sim_low"]
-        RMSE_lows = np.sqrt( np.mean(SWd_lows["residuals"] ** 2) )
+        SWd_minima["BC_residuals"] = SWd_minima["BC_obs"] - SWd_minima["BC_sim"]
+        RMSE_BC_minima = np.sqrt( np.mean(SWd_minima["BC_residuals"] ** 2) )
         
-        plotsoil_evaluation(obs_SWd, sim_SWd, 
-                            slowflow_periods, 
-                            catchment, sim_name, period_id, 
-                            SWd_peaks, SWd_lows, 
-                            sim_λSWd, RMSE_peaks, RMSE_lows, directories.soil['evaluation'])
+        ## 3 Plot
+        plot_soil_evaluation(obs_SWd = obs_SWd, sim_SWd = sim_SWd, 
+                             flow_periods = slowflow_periods, 
+                             SWd_maxima = SWd_maxima, SWd_minima = SWd_minima, 
+                             λ = sim_λSWd, RMSE_maxima = RMSE_BC_maxima, RMSE_minima = RMSE_BC_minima, 
+                             catchment = catchment, sim_id = sim_id, period_id = period_id, 
+                             output_path = directories.soil['evaluation'])
         
-        plotsoil_report(obs_SWd = obs_SWd, sim_SWd = sim_SWd, 
-                        slowflowperiods = slowflow_periods, 
-                        catchment = catchment, simname =  sim_name, period_id = period_id, 
-                        SWd_peaks = SWd_peaks, SWd_lows = SWd_lows,  
-                        λ = sim_λSWd, RMSE_peaks = RMSE_peaks, RMSE_lows = RMSE_lows, 
-                        plotsoil_timeseries_path = directories.soil['timeseries'], plotsoil_boxcox_path = directories.soil['boxcox'])
+        plot_soil_report(obs_SWd = obs_SWd, sim_SWd = sim_SWd, 
+                         flow_periods = slowflow_periods, 
+                         SWd_maxima = SWd_maxima, SWd_minima= SWd_minima, 
+                         λ = sim_λSWd, RMSE_maxima = RMSE_BC_maxima, RMSE_minima = RMSE_BC_minima, 
+                         catchment = catchment, sim_id = sim_id, period_id = period_id, 
+                         timeseries_output_path = directories.soil['timeseries'], boxcox_output_path = directories.soil['boxcox'])
 
 def evaluate_runoff(catchment, period_id, start, end, directories):
+    """Evaluate runoff-related submodel(s) using event-based accumulated runoff depth as a calibration target.
+    When standard/demand-based method is selected, the accumulated runoff depth is a calibration target for soil storage and recharge submodels.
+    When splitting method is selected, the accumulated runoff depth is primarily the calibration target for recharge/runoff model.
     
-    # 1 Observation
+    Parameters
+    ----------
+    catchment : str
+        Catchment name associated with the simulation to be evaluated.
+        must match entry in evaluation/config_periods.xlsx (sheet: simulation_periods).
+    period_id : str
+        Unique identifier for the simulated period to evaluate.
+        must match entry in evaluation/config_periods.xlsx (sheet: simulation_periods).
+    start, end : pandas.TimeStamp
+        Start and end of period where simulation is evaluated.
+    directories : Directories
+        Object containing paths for input data and output plots, used here via
+        directories.obs, directories.sim, and directories.runoff
+
+    Returns
+    -------
+    None.
+
+    """
+    
+    ## 1 Observation
     obs_row = config_obs[config_obs["catchment"] == catchment].iloc[0]
     obs     = Observation(obs_row, directories.obs)
 
     obs_QF_m3s  = obs.QF_m3s.loc[start:end]
     obs_QF_mmdt = _convert_rate_to_depth(obs_QF_m3s, obs.catchment_size, obs.QF_freq)    
     
-    # 2 Simulation
+    ## 2 Simulation
     sim_rows = config_sim[
         (config_sim["catchment"] == catchment) &
         (config_sim["period_id"] == period_id) &
@@ -673,48 +734,71 @@ def evaluate_runoff(catchment, period_id, start, end, directories):
     
     for _, sim_row in sim_rows.iterrows():
         sim = Simulation(sim_row, directories.sim)
-        sim_name = sim.name
+        sim_id = sim.id
         
         sim_λQF = sim.λQF
         sim_QF_m3s = sim.QF_m3s.loc[start:end]
         sim_QF_freq = pd.infer_freq(sim_QF_m3s.index)
         sim_QF_mmdt = _convert_rate_to_depth(sim_QF_m3s, obs.catchment_size, sim_QF_freq)
         
-        # Event-based (quick flow event) Accumulated Runoff Volume
+        ## 2.1 Event-based (quick flow event) cumulative runoff depth
         quickflow_periods = _get_quickflow_periods(catchment, period_id, obs_QF_m3s) # use any timeseries to count index
-        QF_volume = _calculate_volume_values(quickflow_periods, obs_QF_mmdt, sim_QF_mmdt)
+        QF_depth_cumulative = _calculate_cumulative_values(quickflow_periods, obs_QF_mmdt, sim_QF_mmdt)
         
-        BC_obs_QF_vol, BC_sim_QF_vol = _transform_boxcox(QF_volume["obs_volume"], QF_volume["sim_volume"], sim_λQF)
-        QF_volume["BC_obs_volume"] = BC_obs_QF_vol
-        QF_volume["BC_sim_volume"] = BC_sim_QF_vol
+        ## 2.2 Box-cox transformed, event-based cumulative runoff depth
+        BC_obs, BC_sim = _transform_boxcox(QF_depth_cumulative["obs"], QF_depth_cumulative["sim"], sim_λQF)
+        QF_depth_cumulative["BC_obs"] = BC_obs
+        QF_depth_cumulative["BC_sim"] = BC_sim
         
-        QF_volume["residuals"] = QF_volume["BC_obs_volume"] - QF_volume["BC_sim_volume"]
-        RMSE_volume = np.sqrt( np.mean(QF_volume["residuals"] ** 2) )
+        ## 2.3 RMSE
+        QF_depth_cumulative["BC_residuals"] = QF_depth_cumulative["BC_obs"] - QF_depth_cumulative["BC_sim"]
+        RMSE_BC = np.sqrt( np.mean(QF_depth_cumulative["BC_residuals"] ** 2) )
                         
-        plotrunoff_evaluation(obs_QF_mmdt = obs_QF_mmdt , 
-                              sim_QF_mmdt = sim_QF_mmdt, 
-                              quickflowperiods = quickflow_periods, 
-                              catchment = catchment, simname = sim_name, period_id = period_id, 
-                              QF_volume = QF_volume, residuals = QF_volume["residuals"], 
-                              λ = sim_λQF, RMSE_volume = RMSE_volume, 
-                              plotrunoff_evaluation_path = directories.runoff['evaluation'])
-        
-        plotrunoff_report(obs_QF_mmdt = obs_QF_mmdt , 
-                              sim_QF_mmdt = sim_QF_mmdt, 
-                              quickflowperiods = quickflow_periods, 
-                              catchment = catchment, simname = sim_name, period_id = period_id, 
-                              QF_volume = QF_volume, residuals = QF_volume["residuals"], 
-                              λ = sim_λQF, RMSE_volume = RMSE_volume, 
-                              plotrunoff_timeseries_path = directories.runoff['timeseries'], plotrunoff_boxcox_path = directories.runoff['boxcox'])
+        ## 3 Plot        
+        plot_runoff_evaluation(obs_QF_mmdt = obs_QF_mmdt, sim_QF_mmdt = sim_QF_mmdt, 
+                               flow_periods = quickflow_periods, 
+                               QFdepth_cumulative = QF_depth_cumulative, 
+                               λ = sim_λQF, RMSE = RMSE_BC, 
+                               catchment = catchment, sim_id = sim_id, period_id = period_id, 
+                               output_path = directories.runoff['evaluation'])
+
+        plot_runoff_report(obs_QF_mmdt = obs_QF_mmdt, sim_QF_mmdt = sim_QF_mmdt, 
+                           flow_periods = quickflow_periods, 
+                           QF_depth_cumulative = QF_depth_cumulative, 
+                           λ = sim_λQF, RMSE= RMSE_BC, 
+                           catchment = catchment, sim_id = sim_id, period_id = period_id, 
+                           timeseries_output_path = directories.runoff['timeseries'], boxcox_output_path = directories.runoff['boxcox'])
 
 def evaluate_statistics(catchment, period_id, start, end, flow_type, directories):
+    """Evaluate overall model performance using provided statistics, 
+    alongside the shape of flow hydrograph and the hydrograph's peak provided in the time-series plot as evaluation target.
 
-    # 1 Observation
+    Parameters
+    ----------
+    catchment : str
+        Catchment name associated with the simulation to be evaluated.
+        must match entry in evaluation/config_periods.xlsx (sheet: simulation_periods).
+    period_id : str
+        Unique identifier for the simulated period to evaluate.
+        must match entry in evaluation/config_periods.xlsx (sheet: simulation_periods).
+    start, end : pandas.TimeStamp
+        Start and end of period where simulation is evaluated.
+    directories : Directories
+        Object containing paths for input data and output plots, used here via
+        directories.obs, directories.sim, directories.statistics.
+
+    Returns
+    -------
+    None.
+
+    """
+    
+    ## 1 Observation
     obs_row   = config_obs[config_obs["catchment"] == catchment].iloc[0]
     obs       = Observation(obs_row, directories.obs)
     obs_F_m3s = _get_flow(obs, flow_type, start, end)
     
-    # 2 Simulation
+    ## 2 Simulation
     sim_rows = config_sim[
         (config_sim["catchment"] == catchment) &            
         (config_sim["period_id"] == period_id) &            
@@ -725,32 +809,50 @@ def evaluate_statistics(catchment, period_id, start, end, flow_type, directories
     
     for _, sim_row in sim_rows.iterrows():
         sim = Simulation(sim_row, directories.sim)
-        sim_name = sim.name
+        sim_id = sim.id
         sim_F_m3s = _get_flow(sim, flow_type, start, end)
         
+        ## 2.1 Statistics
         F_residuals = obs_F_m3s - sim_F_m3s
         F_deviation = obs_F_m3s - np.mean(obs_F_m3s)
-
+        
+        ## 2.2 Performance Indices
         ME = np.mean(F_residuals)        
         RMSE = np.sqrt(np.mean(F_residuals ** 2))
         NSE = 1 - ( np.mean(F_residuals ** 2) / np.mean(F_deviation ** 2))
         
-        obs_label = _get_obs_label(flow_type)
-        
-        # Plot function inside the loop, 1 plot per simulation.
-        plotflow_timeseries(obs_F_m3s = obs_F_m3s, 
-                            sim_F_m3s = sim_F_m3s, 
-                            obslabel = obs_label,
-                            years_per_figure=3,
-                            flowtype=flow_type, 
-                            catchment = catchment, simname = sim_name, period_id = period_id, 
-                            plotflow_timeseries_path = directories.statistics[flow_type],
-                            plot_statistics=True,
-                            ME = ME, RMSE = RMSE, NSE = NSE,)
+        ## 3 Plot
+        plot_flow_timeseries(obs_F_m3s = obs_F_m3s, sim_F_m3s = sim_F_m3s, 
+                             years_per_figure = 3, 
+                             flow_type = flow_type, obs_label = _get_obs_label(flow_type), 
+                             catchment = catchment, sim_id = sim_id, period_id = period_id, 
+                             output_path = directories.statistics[flow_type], 
+                             show_statistics = True,
+                             ME = ME, RMSE = RMSE, NSE = NSE)
 
 def evaluate_waterbalance(catchment, period_id, start, end, flow_type, directories):
+    """Evaluate overall model performance using water balance deficit and the cumulative plot as evaluation target.
     
-    # 1 Observation
+    Parameters
+    ----------
+    catchment : str
+        Catchment name associated with the simulation to be evaluated.
+        must match entry in evaluation/config_periods.xlsx (sheet: simulation_periods).
+    period_id : str
+        Unique identifier for the simulated period to evaluate.
+        must match entry in evaluation/config_periods.xlsx (sheet: simulation_periods).
+    start, end : pandas.TimeStamp
+        Start and end of period where simulation is evaluated.
+    directories : Directories
+        Object containing paths for input data and output plots, used here via
+        directories.obs, directories.sim, directories.waterbalance.
+
+    Returns
+    -------
+    None.
+
+    """
+    ## 1 Observation
     obs_row = config_obs[config_obs["catchment"] == catchment].iloc[0]
     obs    = Observation(obs_row, directories.obs)
     
@@ -765,7 +867,7 @@ def evaluate_waterbalance(catchment, period_id, start, end, flow_type, directori
     obs_F_mmdt = _convert_rate_to_depth(obs_F_m3s, obs.catchment_size, obs_F_freq)
     obs_F_wb = obs_F_mmdt.cumsum()
     
-    # 2 Simulation
+    ## 2 Simulation
     sim_F_wb_dict = {}
     
     sim_rows = config_sim[
@@ -778,27 +880,22 @@ def evaluate_waterbalance(catchment, period_id, start, end, flow_type, directori
     
     for _, sim_row in sim_rows.iterrows():
         sim = Simulation(sim_row, directories.sim)
-        sim_name = sim.name 
+        sim_id = sim.id
         
         sim_F_m3s = _get_flow(sim, flow_type, start, end)
         sim_F_freq = pd.infer_freq(sim_F_m3s.index)
         sim_F_mmdt = _convert_rate_to_depth(sim_F_m3s, obs.catchment_size, sim_F_freq)
         sim_F_wb = sim_F_mmdt.cumsum()
 
-        sim_F_wb_dict[sim_name] = sim_F_wb
+        sim_F_wb_dict[sim_id] = sim_F_wb
         
         # deficit = (sim - obs) / obs
         wb_deficit = float((sim_F_wb.iloc[-1] - obs_F_wb.iloc[-1]) / obs_F_wb.iloc[-1] * 100) 
     
-    obs_label = _get_obs_label(flow_type)
-    
-    # Plot function outside the loop, 1 plot for all simulations.
-    plotflow_waterbalance(obs_F_wb = obs_F_wb, 
-                          sim_F_wb_dict = sim_F_wb_dict, 
-                          obslabel = obs_label, 
-                          wb_deficit = wb_deficit, 
-                          flowtype = flow_type, 
-                          catchment = catchment, 
-                          simname = sim_name, 
-                          period_id = period_id, 
-                          plotflow_waterbalance_path = directories.waterbalance[flow_type])
+    ## 3 Plot     
+    plot_flow_waterbalance(obs_F_wb = obs_F_wb, 
+                           sim_F_wb_dict = sim_F_wb_dict, 
+                           wb_deficit = wb_deficit, 
+                           flow_type = flow_type, obs_label = _get_obs_label(flow_type), 
+                           catchment = catchment, sim_id = sim_id, period_id = period_id, 
+                           output_path = directories.waterbalance[flow_type])

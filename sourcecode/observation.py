@@ -51,19 +51,19 @@ class Observation:
         self.BF_freq = row_todict['baseflow_freq']
         self.QF_freq = row_todict['quickflow_freq']
         
-        self.P_mmdt = self.load_timeseries(obs_path, rainfall_filename, columnname)
-        self.ETp_mmdt = self.load_timeseries(obs_path, ETp_filename, columnname)
-        self.Q_m3s = self.load_timeseries(obs_path, flow_filename, columnname)
-        self.BF_m3s = self.load_timeseries(obs_path, baseflow_filename, columnname)
-        self.QF_m3s = self.load_timeseries(obs_path, quickflow_filename, columnname)
+        self.P_mmdt = self._load_timeseries(obs_path, rainfall_filename, columnname)
+        self.ETp_mmdt = self._load_timeseries(obs_path, ETp_filename, columnname)
+        self.Q_m3s = self._load_timeseries(obs_path, flow_filename, columnname)
+        self.BF_m3s = self._load_timeseries(obs_path, baseflow_filename, columnname)
+        self.QF_m3s = self._load_timeseries(obs_path, quickflow_filename, columnname)
         
-        self.qualitycheck_timeseries(self.P_mmdt, self.P_freq, "Rainfall")
-        self.qualitycheck_timeseries(self.ETp_mmdt, self.ETp_freq, "ETp")
-        self.qualitycheck_timeseries(self.Q_m3s, self.Q_freq, "Total Flow")
-        self.qualitycheck_timeseries(self.BF_m3s, self.BF_freq, "Baseflow")
-        self.qualitycheck_timeseries(self.QF_m3s, self.QF_freq, "Quick flow")
+        self._quality_check_timeseries(self.P_mmdt, self.P_freq, "Rainfall")
+        self._quality_check_timeseries(self.ETp_mmdt, self.ETp_freq, "ETp")
+        self._quality_check_timeseries(self.Q_m3s, self.Q_freq, "Total Flow")
+        self._quality_check_timeseries(self.BF_m3s, self.BF_freq, "Baseflow")
+        self._quality_check_timeseries(self.QF_m3s, self.QF_freq, "Quick flow")
         
-    def load_timeseries(self, folder, filename, columnname):
+    def _load_timeseries(self, folder, filename, columnname):
         """Extract the time-series from obesrvation files and prepare them for use in calibration
 
         Parameters
@@ -99,7 +99,7 @@ class Observation:
         
         return df[columnname] 
     
-    def qualitycheck_timeseries(self, timeseries, freq, name):
+    def _quality_check_timeseries(self, timeseries, freq, name):
         """Run quality check on observation time-series and raise an error if fails quality check.
         
         Parameters
@@ -120,7 +120,7 @@ class Observation:
         # Ensure timestamp in chronological order
         timeseries = timeseries.sort_index()
         
-        # Check 1: Duplicate timestamp
+        ## Quality Check 1: Duplicate timestamp
         duplicate_timestamps = timeseries.index[timeseries.index.duplicated()]
          
         if not duplicate_timestamps.empty:
@@ -128,7 +128,7 @@ class Observation:
             print(duplicate_timestamps[:5])
             raise ValueError("Duplicated data")
             
-        # Check 2: Missing timestamp
+        ## Quality Check 2: Missing timestamp
         expected_timestamps = pd.date_range(
             start = timeseries.index.min(),
             end = timeseries.index.max(),
@@ -142,7 +142,7 @@ class Observation:
             print(missing_timestamps[:5])
             raise ValueError("Missing data")
         
-        # Check 3: Missing values (NaN)
+        ## Quality Check 3: Missing values (NaN)
         NaN_timestamps = timeseries[timeseries.isna()].index 
 
         if not NaN_timestamps.empty:

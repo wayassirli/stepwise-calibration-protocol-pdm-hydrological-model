@@ -26,12 +26,12 @@ Created on Sat Jul 11 23:55:34 2026
 
 import sys
 from directory import project_path
-from directory import output_folder
+from directory import generate_output_folder
 from directory import Directory
 from calibration import simulation_period
 from calibration import evaluate_recession
 from calibration import evaluate_statistics, evaluate_waterbalance
-from calibration import evaluate_eta, evaluate_soil
+from calibration import evaluate_et, evaluate_soil
 from calibration import evaluate_runoff
 
 if __name__ == "__main__":
@@ -45,13 +45,13 @@ if __name__ == "__main__":
         evaluation_method = sys.argv[5]
         
         start, end = simulation_period(catchment, period_id)
-        catchment_path = output_folder(catchment)
+        catchment_path = generate_output_folder(catchment)
         directories = Directory(project_path, catchment_path)
         
         if stage == "submodel":
             
-            if calibration_target == "ETa":
-                evaluate_eta(catchment, period_id, start, end, directories)
+            if calibration_target == "ET":
+                evaluate_et(catchment, period_id, start, end, directories)
             elif calibration_target == "soil":
                 evaluate_soil(catchment, period_id, start, end, directories)
             
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         flowtype = sys.argv[6]
         
         start, end = simulation_period(catchment, period_id)
-        catchment_path = output_folder(catchment)
+        catchment_path = generate_output_folder(catchment)
         directories = Directory(project_path, catchment_path)
         
         if stage == "submodel":

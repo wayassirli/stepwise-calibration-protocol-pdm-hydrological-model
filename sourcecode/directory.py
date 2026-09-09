@@ -11,7 +11,7 @@ import os
 sourcecode_path = os.path.dirname(__file__)
 project_path = os.path.dirname(sourcecode_path)
 
-def output_folder(catchment):
+def generate_output_folder(catchment):
     """Create the output folder and subfolders for a catchment.
 
     Parameters

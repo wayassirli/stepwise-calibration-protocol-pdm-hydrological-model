@@ -52,7 +52,7 @@ class Simulation:
         row_dict.pop('flowtype')                                                       # 7
         
         # Field below are stored as variables, used here and in calibration.py
-        self.name = row_dict.pop('simulation_id')                                      # 1
+        self.id = row_dict.pop('simulation_id')                                        # 1
         self.calibration_target = row_dict.pop('calibration_target')                   # 5
         
         # Load filename to be joined as path
@@ -60,12 +60,12 @@ class Simulation:
         baseflow_quickflow_filename = row_dict.pop('baseflow_quickflow_filename')      # 9
         
         if self.calibration_target in ["ETa", "soil"]:
-            self.ETa_mmday = self.load_timeseries(sim_path, ETa_soilmoisture_filename, ETa_key)
-            self.smd = self.load_timeseries(sim_path, ETa_soilmoisture_filename, smd_key)
+            self.ETa_mmday = self._load_timeseries(sim_path, ETa_soilmoisture_filename, ETa_key)
+            self.smd       = self._load_timeseries(sim_path, ETa_soilmoisture_filename, smd_key)
         
         else:
-            self.BF_m3s = self.load_timeseries(sim_path, baseflow_quickflow_filename, baseflow_key)
-            self.QF_m3s = self.load_timeseries(sim_path, baseflow_quickflow_filename, quickflow_key)
+            self.BF_m3s = self._load_timeseries(sim_path, baseflow_quickflow_filename, baseflow_key)
+            self.QF_m3s = self._load_timeseries(sim_path, baseflow_quickflow_filename, quickflow_key)
         
         self.λSWd = row_dict.pop("λSWd")                                               # 10
         self.λQF = row_dict.pop("λQF")                                                 # 11
@@ -73,7 +73,7 @@ class Simulation:
         
         self.parameters = row_dict                                                     # "parameters" Sheet
         
-    def load_timeseries(self, folder, filename, columnkey):
+    def _load_timeseries(self, folder, filename, columnkey):
         """Extract the time-series from InfoWorks output files and prepare them for use in calibration.
         
         Parameters
