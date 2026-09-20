@@ -1,6 +1,6 @@
 ## 1 Introduction
 ### Probability Distributed Model (PDM)
-Probability Distributed Model (Moore, 2007) is a lumped, conceptual rainfall-runoff model, where the spatial variability of the soil storage is represented by probability distribution. It is a saturation-excess model with baseflow and quick flow as the sub-component.
+Probability Distributed Model (Moore, 2007) is a lumped, conceptual rainfall-runoff model, where the spatial variability of the soil storage is represented by probability distribution. It is a saturation-excess model with baseflow and quick flow as the sub-component. PDM is built within the InfoWorks ICM software.
 
 ### Step-wise calibration protocol
 The step-wise calibration protocol (Vansteenkiste, 2014) is a calibration approach in which parameters controlling different hydrological process are calibrated sequentially against multiple derived information relevant to each process. This protocol is adapted from top-down modelling approach (Willems, 2014) and implemented to five different hydrological models including the PDM. 
@@ -44,19 +44,25 @@ The project is organized into the following folders and files. No additional fol
 ```
 
 ### 3.1 Evaluation folder
-The `evaluation/` folder contains `plot/` subfolder and `config_periods.xlsx` Excel.<br>The `plot/` subfolder contains the result of different submodel and overall evaluation plots.<br>The `config_calibration.xlsx` Excel defines the calibration period, including the start and end dates of the simulation period to be evaluated. It also specifies the quick and slow flow period associated with each calibration period.  
+The `evaluation/` folder contains `plot/` subfolder and `config_periods.xlsx` Excel. The `plot/` subfolder contains the result of different submodel and overall evaluation plots.<br>
+The `config_calibration.xlsx` Excel defines the calibration period, including the start and end dates of the simulation period to be evaluated. It also specifies the quick and slow flow period associated with each calibration period.  
 
 ### 3.2 Observation folder
 The `observation/` folder contains `observations/` subfolder and `config_observations.xlsx` Excel.
 
-Place all the observation time-series for all catchments required for the calibration in the `observations/` subfolder. The required observation data for each catchment are rainfall, ETp, flow, baseflow, quickflow. The time-series data must be in `xlsx` format. Name the date and time column `“Timestamp”` and the data column `“Value”`.Timestamp must be in `DD/MM/YYYY HH:MM` format. The expected unit are mm for rainfall and evapotranspiration, and m³/s for flow. The temporal resolution of rainfall and flow should be the same. ETp can have a different temporal resolution and should be monthly or finer. 
+- Place all the **observation time-series** for all catchments required for the calibration in the `observations/` subfolder. The required observation time-series for each catchment are **rainfall, evapotranspiration (ETp), flow, baseflow, quickflow**.<br>
+- The time-series data must be in `xlsx` **format**. Name the date and time column `“Timestamp”` and the data column `“Value”`. Timestamp must be in `DD/MM/YYYY HH:MM` format.<br>
+- The **expected unit** for rainfall and ETp are mm (accumulated depth). If rainfall and ETp are provided as rate (e.g. mm/hr per 15-minutes), make sure that the rate is converted to accumulated depth (mm) corresponding to the temporal resolution of the data before using it as an input. The expected unit for flow is m³/s.<br>
+- The **temporal resolution** are flexible (e.g. 15-min, hourly, daily), but should be consistent across all input time-series. 
 
 The `config_observations.xlsx` Excel is used to assign the associated observation time-series (e.g. rainfall, ETp, flow) to each catchment. The same observation time-series can be assigned to different catchments, for example, nearby catchments can use the same ETp data.
 
 ### 3.3 Simulation folder
 The `simulation/` folder contains `simulationoutput/` subfolder and `config_simulations.xlsx` Excel.
 
-Place all the simulation output files in the `simulationoutput/` subfolder. For each simulation, export `Actual evapotranspiration [pdm_evaporation]` together with `Soil moisture deficit [pdm_smd]` together in one file, and `Surface flow [pdm_surfaceflow]` together with `Rainfall-driven Baseflow [pdm_baseflow]` in one file. The ETa and SMD file is used for the calibration of the ETa and soil submodel, while the quick flow and baseflow file is used for the calibration of runoff related submodels.
+- Place all the simulation output files in the `simulationoutput/` subfolder. 
+- For each simulation, export `Actual evapotranspiration [pdm_evaporation]` together with `Soil moisture deficit [pdm_smd]` together in one file, and `Surface flow [pdm_surfaceflow]` together with `Rainfall-driven Baseflow [pdm_baseflow]` in one file. The ETa and SMD file is used for the calibration of the ETa and soil submodel, while the quick flow and baseflow file is used for the calibration of runoff related submodels. <br>
+- In InfoWorks ICM, choose the simulation timestep that is consistent with the temporal resolution of the provided observation time-series. 
 
 The `config_simulations.xlsx` Excel contains `simulation_id`, an identifier for the parameter set used to produced the corresponding simulation output. The Excel then defines which submodel performance is evaluated using this simulation output, for which catchment, and within which calibration period. The same simulation output can be used to evaluate the performance of different submodels, for example, a simulation output can be used to evaluate soil storage and runoff submodel performance.
 
@@ -66,11 +72,12 @@ The calibration of simulation output is configured through the three Excels in w
 **Cell colour convention**<br>
 🟩 **Green cells** Input required for the code to run<br>
 🟦 **Blue cells** Information Only (code would run with or without a value, but information is useful for context)<br>
-🟥 **Red cells** Customization for Box-Cox plotting
+🟥 **Red cells** Customization for Box-Cox plotting<br>
 ⬜ **Grey cells** Automatically filled, do not modify. If your simulation exceeds the pre-filled 5000 rows, drag the formula down as required. 
 
 <details>
 <summary>4.1 Calibration Configuration</summary>
+
 **Excel: 'calibration_config.xlsx'**  
 **Sheet 1: 'simulation_periods'**
 | Column | Cell | Type | Description |
@@ -95,6 +102,7 @@ Each catchment will have quick and flow period. Multiple rows with the same catc
 
 <details>
 <summary>4.2 Observation Configuration</summary>
+
 **Excel: 'observation_config.xlsx'**  
 Each row corresponds to the information of one catchment including its size and metadata of the associated hydrological time-series.
 | Column | Cell | Type | Description |
@@ -115,6 +123,7 @@ Each row corresponds to the information of one catchment including its size and 
 
 <details>
 <summary>4.3 Simulation Configuration</summary>
+
 **Excel: 'simulation_config.xlsx'**  
 **Sheet 1: scenarios**
 | Column | Cell | Type | Description |
@@ -215,7 +224,7 @@ The sequence of step-wise protocol implemented for PDM are divided into multiple
 The recession characteristics of the flow hydrograph are used to calibrate the routing submodels. When the linear reservoir model is selected, the calibrated recession constants from WETSPRO can be directly applied here. When the original PDM routing models are selected, the parameters can be calibrated by matching the shape of the subflow components from the WETSPRO filter results.
 
 **ET**<br>
-Evapotranspiration-related variables are used to calibrate the evapotranspiration (ET) model. The one parameter (ET exponent) is calibrated according to the expected monthly or seasonal ratio between the actual and potential ET. For example, in temperate regions like Belgium, ET is almost at potential rate during winter, while in summer it remains below the potential rate.
+Evapotranspiration-related variables are used to calibrate the evapotranspiration (ET) model. The one parameter (ET exponent) is primarily calibrated according to the expected seasonal ratio between the actual and potential ET. For example, in temperate regions like Belgium, ET is almost at potential rate during winter, while in summer it remains below the potential rate. Actual vs potential evapotranspiration and soil water depth (SWd) variation plots are provided as additional consideration in calibration.
 
 **Soil**<br>
 Soil water depth (SWd), specifically slow-flow event-based accumulated soil water depth, is used as calibration targets of multiple submodels depending on how the recharge model is configured. Soil water depth is calculated from the water balance:
