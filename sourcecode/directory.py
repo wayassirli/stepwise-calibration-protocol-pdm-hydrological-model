@@ -8,8 +8,8 @@ Created on Thu Aug 13 14:03:34 2026
 import os
 
 # Project's main directory
-sourcecode_path = os.path.dirname(__file__)
-project_path = os.path.dirname(sourcecode_path)
+sourcecode_path = os.path.dirname(__file__)     # directory of directory.py   = .../sourcecode
+project_path = os.path.dirname(sourcecode_path) # directory of .../sourcecode = .../calibration.py
 
 def generate_output_folder(catchment):
     """Create the output folder and subfolders for a catchment.

@@ -4,9 +4,10 @@
 Created on Tue Mar  3 12:35:24 2026
 @author: Way
 """
-
+import os
 import pandas as pd
 import numpy as np
+from directory import project_path
 from observation import Observation
 from simulation import Simulation
 from plot import plot_et_actual_vs_potential, plot_et_ratio, plot_soil_water_depth_multi
@@ -17,14 +18,23 @@ from plot import plot_flow_timeseries, plot_flow_waterbalance
 #%% config.py
 # Used to filter rows on configuration excels
 
-config_obs = pd.read_excel("observation/config_observations.xlsx")
+config_obs = pd.read_excel(
+    os.path.join(project_path, "observation", "config_observations.xlsx"))
 
-simulations = pd.read_excel("simulation/config_simulations.xlsx", sheet_name="simulations")
-parameters = pd.read_excel("simulation/config_simulations.xlsx", sheet_name="parameters")
+simulations = pd.read_excel(
+    os.path.join(project_path, "simulation", "config_simulations.xlsx"), 
+                 sheet_name="simulations")
+parameters = pd.read_excel(
+    os.path.join(project_path, "simulation", "config_simulations.xlsx"), 
+                 sheet_name="parameters")
 config_sim = simulations.merge(parameters, on=["simulation_id", "stage", "calibration_target","evaluation_method", "flow_type"])
 
-config_periods  = pd.read_excel("evaluation/config_periods.xlsx", sheet_name="simulation_periods")
-flow_periods = pd.read_excel("evaluation/config_periods.xlsx", sheet_name="flow_periods")
+config_periods  = pd.read_excel(
+    os.path.join(project_path, "evaluation", "config_periods.xlsx"), 
+                 sheet_name="simulation_periods")
+flow_periods = pd.read_excel(
+    os.path.join(project_path, "evaluation", "config_periods.xlsx"), 
+                 sheet_name="flow_periods")
 
 #%% Helper Functions
 
@@ -173,6 +183,27 @@ def _get_quickflow_periods(catchment, period_id, df):
     
     return quickflow_periods
 
+def _convert_freq_to_seconds(frequency):
+    """Convert frequency (str) prescribed in Observation Configuration into duration in seconds (float)
+
+    Parameters
+    ----------
+    frequency : str
+        pandas frequency alias describing the temporal resolution of flow time-series.
+
+    Returns
+    -------
+    freq_seconds : float
+        Frequency/temporal resolution of time-series in seconds 
+    """
+    # to_offset convert pandas frequency alias (e.g. "15min", "H") to a pandas offset/duration object (e.g. <hour>, 2 * <hour>)
+    freq_object = pd.tseries.frequencies.to_offset(frequency) 
+    
+    # Timedelta convert the offset/duration object to seconds (e.g. <hour> to 3600 seconds)
+    freq_seconds = pd.Timedelta(freq_object).total_seconds()
+    
+    return freq_seconds
+
 def _convert_rate_to_depth(flow, catchment_size, frequency):
     """Convert a flow rate (m3/s) into flow depth per timestep (mm/timestep).
     
@@ -180,23 +211,19 @@ def _convert_rate_to_depth(flow, catchment_size, frequency):
     ----------
     flowr : pandas.Series
         Flow rate time-series in m3/s
-    catchmentsize : float
+    catchment_size : float
         Catchment area in m2
     frequency : str
-        pandas frequency alias describing the timestep of flowrate,
+        pandas frequency alias describing the timestep of flow (rate) time-series,
         e.g. "H", "D", "15min"
 
     Returns
     -------
-    flowvolume : pandas.Series
+    flow_depth : pandas.Series
         Flow depth per timestep time-series in mm/timestep
     """
     
-    # to_offset convert pandas frequency alias (e.g. "15min", "H") to a pandas offset/duration object (e.g. <hour>, 2 * <hour>)
-    freq_object = pd.tseries.frequencies.to_offset(frequency) 
-    
-    # Timedelta convert the offset/duration object to seconds (e.g. <hour> to 3600 seconds)
-    freq_seconds = pd.Timedelta(freq_object).total_seconds()
+    freq_seconds = _convert_freq_to_seconds(frequency)
     
     flow_depth = (flow * freq_seconds / catchment_size) * 1000  
     return flow_depth
@@ -513,19 +540,24 @@ def evaluate_et(catchment, period_id, start, end, directories):
     smd = Soil Moisture Deficit (no unit, value range: 0 < smd < 1)
     SWd = Soil Water Depth (unit: mm, 0 < SWd < Smax)
     """
-    ETa_dict = {}
+    ETa_mmday_dict = {}
     ET_ratio_dict    = {}
     SWd_dict  = {}
     
     ## 1 Observation
     obs_row = config_obs[config_obs["catchment"] == catchment].iloc[0]
     obs     = Observation(obs_row, directories.obs)
+    obs_ETp_freq = obs.ETp_freq
+    obs_ETp_freq_seconds = _convert_freq_to_seconds(obs_ETp_freq)
 
-    obs_ETp_mmdt = obs.ETp_mmdt.loc[start:end]
+    obs_ETp_mmdt = obs.ETp_mmdt.loc[start:end]       # mmdt = accumulated depth per timestep
     obs_P_mmdt   = obs.P_mmdt.loc[start:end]   
     obs_Q_m3s    = obs.Q_m3s.loc[start:end]      
     
     obs_Q_mmdt = _convert_rate_to_depth(obs_Q_m3s, obs.catchment_size, obs.Q_freq)
+    
+    # Daily accumulated values 
+    obs_ETp_mmday = obs_ETp_mmdt.resample("D").sum()
     
     # Monthly accumulated values
     obs_ETp_mmmonth = obs_ETp_mmdt.resample("M").sum()
@@ -537,7 +569,7 @@ def evaluate_et(catchment, period_id, start, end, directories):
         (config_sim["catchment"] == catchment) &     # passed in from main.py's command line argument
         (config_sim["period_id"] == period_id) &     # idem
         (config_sim["stage"] == "submodel") &
-        (config_sim["calibration_target"] == "ETa")
+        (config_sim["calibration_target"] == "ET")
     ]
     
     for _, sim_row in sim_rows.iterrows():
@@ -546,9 +578,11 @@ def evaluate_et(catchment, period_id, start, end, directories):
         
         ## 2.1 ETa
         sim_smd = sim.smd.loc[start:end]
-        sim_ETa_mmday   = sim.ETa_mmday.loc[start:end]
-        sim_ETa_mmmonth = sim_ETa_mmday.resample("M").sum()
-        ETa_dict[sim_id] = sim_ETa_mmmonth      
+        sim_ETa_mmday_rate = sim.ETa_mmday.loc[start:end]                        # InfoWorks ETa output, rate in mm/day
+        sim_ETa_mmdt       = sim_ETa_mmday_rate * (obs_ETp_freq_seconds / 86400)
+        sim_ETa_mmday      = sim_ETa_mmdt.resample("D").sum()                    # accumulated ETa depth in mm, for daily timestep
+        sim_ETa_mmmonth    = sim_ETa_mmdt.resample("M").sum()
+        ETa_mmday_dict[sim_id] = sim_ETa_mmday
         
         ## 2.2 Actual to potential evapotranspiration ratio (ET ratio)
         ET_ratio = sim_ETa_mmmonth / obs_ETp_mmmonth
@@ -570,8 +604,8 @@ def evaluate_et(catchment, period_id, start, end, directories):
         SWd_dict[sim_id] = SWd
     
     ## 3 Plot
-    plot_et_actual_vs_potential(ETp_series = obs_ETp_mmmonth, 
-                                ETa_dict = ETa_dict, 
+    plot_et_actual_vs_potential(ETp_series = obs_ETp_mmday, 
+                                ETa_dict = ETa_mmday_dict, 
                                 catchment = obs.catchment, 
                                 period_id = period_id,
                                 output_path = directories.ET)

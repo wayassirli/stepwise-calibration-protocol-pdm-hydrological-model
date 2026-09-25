@@ -28,7 +28,7 @@ import sys
 from directory import project_path
 from directory import generate_output_folder
 from directory import Directory
-from calibration import simulation_period
+from calibration import _get_simulation_period
 from calibration import evaluate_recession
 from calibration import evaluate_statistics, evaluate_waterbalance
 from calibration import evaluate_et, evaluate_soil
@@ -36,65 +36,64 @@ from calibration import evaluate_runoff
 
 if __name__ == "__main__":
 
-    if len(sys.argv) == 6: # flowtype is not specified
+    if len(sys.argv) == 5: # flowtype is not specified
         
         catchment = sys.argv[1]          
         period_id = sys.argv[2]
         stage = sys.argv[3]
-        calibration_target =sys.argv[4]
-        evaluation_method = sys.argv[5]
+        calibration_target_evaluation_method =sys.argv[4]
+
         
-        start, end = simulation_period(catchment, period_id)
+        start, end = _get_simulation_period(catchment, period_id)
         catchment_path = generate_output_folder(catchment)
         directories = Directory(project_path, catchment_path)
         
         if stage == "submodel":
             
-            if calibration_target == "ET":
+            if calibration_target_evaluation_method == "ET":
                 evaluate_et(catchment, period_id, start, end, directories)
-            elif calibration_target == "soil":
+            elif calibration_target_evaluation_method == "soil":
                 evaluate_soil(catchment, period_id, start, end, directories)
             
-            elif calibration_target == "runoff":
+            elif calibration_target_evaluation_method == "runoff":
                 evaluate_runoff(catchment, period_id, start, end, directories)
           
-            elif calibration_target == "recession":
+            elif calibration_target_evaluation_method == "recession":
                 # when flowtype is not specified, evaluate all flowtype 
                 for flowtype in ["QF", "BF"]:
                     evaluate_recession(catchment, period_id, start, end, flowtype, directories)
         
         else: 
-            if evaluation_method == "statistics":
+            if calibration_target_evaluation_method == "statistics":
                 # when flowtype is not specified, evaluate all flowtype
                 for flowtype in ["QF", "BF", "TF"]:
                     evaluate_statistics(catchment, period_id, start, end, flowtype, directories)
             
-            elif evaluation_method == "waterbalance":
+            elif calibration_target_evaluation_method == "waterbalance":
                 # when flowtype is not specified, evaluate all flowtype
                 for flowtype in ["QF", "BF", "TF"]:
                     evaluate_waterbalance(catchment, period_id, start, end, flowtype, directories)
         
-    elif len(sys.argv) == 7: # flowtype is specified
+    elif len(sys.argv) == 6: # flowtype is specified
         
         catchment = sys.argv[1]          
         period_id = sys.argv[2]
         stage = sys.argv[3]
         calibration_target =sys.argv[4]
-        evaluation_method = sys.argv[5]
-        flowtype = sys.argv[6]
+        flowtype = sys.argv[5]
         
-        start, end = simulation_period(catchment, period_id)
+        start, end = _get_simulation_period(catchment, period_id)
         catchment_path = generate_output_folder(catchment)
         directories = Directory(project_path, catchment_path)
         
         if stage == "submodel":
-            if calibration_target == "recession":
+            if calibration_target_evaluation_method == "recession":
                 evaluate_recession(catchment, period_id, start, end, flowtype, directories)
         
         else:
-            if evaluation_method == "statistics":
+            if calibration_target_evaluation_method == "statistics":
                 evaluate_statistics(catchment, period_id, start, end, flowtype, directories)
-            elif evaluation_method == "waterbalance":
+            elif calibration_target_evaluation_method == "waterbalance":
                 evaluate_waterbalance(catchment, period_id, start, end, flowtype, directories)  
 
     else:

@@ -49,7 +49,7 @@ class Simulation:
         row_dict.pop('period_id')                                                      # 3
         row_dict.pop('stage')                                                          # 4
         row_dict.pop('evaluation_method')                                              # 6
-        row_dict.pop('flowtype')                                                       # 7
+        row_dict.pop('flow_type')                                                      # 7
         
         # Field below are stored as variables, used here and in calibration.py
         self.id = row_dict.pop('simulation_id')                                        # 1
@@ -59,7 +59,7 @@ class Simulation:
         ETa_soilmoisture_filename = row_dict.pop('ETa_soilmoisture_filename')          # 8
         baseflow_quickflow_filename = row_dict.pop('baseflow_quickflow_filename')      # 9
         
-        if self.calibration_target in ["ETa", "soil"]:
+        if self.calibration_target in ["ET", "soil"]:
             self.ETa_mmday = self._load_timeseries(sim_path, ETa_soilmoisture_filename, ETa_key)
             self.smd       = self._load_timeseries(sim_path, ETa_soilmoisture_filename, smd_key)
         
