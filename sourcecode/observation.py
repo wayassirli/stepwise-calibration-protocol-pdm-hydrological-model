@@ -57,12 +57,6 @@ class Observation:
         self.BF_m3s = self._load_timeseries(obs_path, baseflow_filename, columnname)
         self.QF_m3s = self._load_timeseries(obs_path, quickflow_filename, columnname)
         
-        self._quality_check_timeseries(self.P_mmdt, self.P_freq, "Rainfall")
-        self._quality_check_timeseries(self.ETp_mmdt, self.ETp_freq, "ETp")
-        self._quality_check_timeseries(self.Q_m3s, self.Q_freq, "Total Flow")
-        self._quality_check_timeseries(self.BF_m3s, self.BF_freq, "Baseflow")
-        self._quality_check_timeseries(self.QF_m3s, self.QF_freq, "Quick flow")
-        
     def _load_timeseries(self, folder, filename, columnname):
         """Extract the time-series from obesrvation files and prepare them for use in calibration
 
@@ -99,16 +93,18 @@ class Observation:
         
         return df[columnname] 
     
-    def _quality_check_timeseries(self, timeseries, freq, name):
+    def _quality_check_timeseries(self, timeseries, start, end, freq, variable):
         """Run quality check on observation time-series and raise an error if fails quality check.
         
         Parameters
         ----------
+        start, end : pandas.Timestamp
+            Start and end of period where time-series being quality-checked.
         timeseries : pandas.Series
             The observation time-series to be quality checked.
         freq : str
             Expected frequency of the time-series, used to detect missing timestamp.
-        name : str
+        variable: str
             Variable name to identify which variable has failed quality check.
 
         Raises
@@ -124,28 +120,26 @@ class Observation:
         duplicate_timestamps = timeseries.index[timeseries.index.duplicated()]
          
         if not duplicate_timestamps.empty:
-            print(f"Duplicated {name} data at: ")
-            print(duplicate_timestamps[:5])
-            raise ValueError("Duplicated data")
+            raise ValueError(
+                f"Duplicate {variable} data at:\n"
+                f"{duplicate_timestamps[:5]}"
+            )
             
         ## Quality Check 2: Missing timestamp
-        expected_timestamps = pd.date_range(
-            start = timeseries.index.min(),
-            end = timeseries.index.max(),
-            freq = freq
-            )
-
+        expected_timestamps = pd.date_range(start = start, end = end, freq = freq)
         missing_timestamps = expected_timestamps.difference(timeseries.index)
 
         if not missing_timestamps.empty:       
-            print(f"Missing {name} data at: ")
-            print(missing_timestamps[:5])
-            raise ValueError("Missing data")
+            raise ValueError(
+                f"Missing {variable} data at: \n"
+                f"{missing_timestamps[:5]}"
+            )
         
         ## Quality Check 3: Missing values (NaN)
         NaN_timestamps = timeseries[timeseries.isna()].index 
 
         if not NaN_timestamps.empty:
-            print("Missing {name} values at: ")
-            print(NaN_timestamps[:5])
-            raise ValueError("Missing Values (NaN)")            
+            raise ValueError(
+                f"Missing {variable} values at: \n"
+                f"{NaN_timestamps[:5]}"
+            )            

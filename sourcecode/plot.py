@@ -191,6 +191,198 @@ def _plot_boxcox(ax, BC_obs, BC_sim, residuals, title, x_label, y_label, color):
     ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.5)
     ax.tick_params(axis="both", labelsize=14)
     ax.legend(fontsize=14)
+    
+#%% Plot Rainfall vs Flow
+
+def plot_rainfall_flow(P_series, Q_series, P_freq, catchment, period_id, start, end, output_path, Q_legend_label,
+                       years_per_figure):
+    """
+    
+    Parameters
+    ----------
+    P_series, Q_series : pandas.Series
+        DESCRIPTION.
+    catchment : str
+        Catchment name, used in the plot title and filename.
+    period_id : str
+        Unique identifier for simulation period to be plotted.
+    start, end : pandas.Timestamp
+        The start and end of time-series to be plotted.
+    output_path : str
+        Folder to save the resulting plot to.
+        
+    Returns
+    -------
+    None.
+
+    """
+    
+    P_series = P_series.loc[start:end]    
+    Q_series = Q_series.loc[start:end]    
+    
+    years = sorted(P_series.index.year.unique()) 
+    
+    # Create a list of year, grouped for 1 exported image
+    year_groups = []
+    for i in range(0, len(years), years_per_figure):
+        year_group = years[i : i+years_per_figure]
+        year_groups.append(year_group)
+        
+    for group_id, years_in_group in enumerate(year_groups):
+        
+        ## Plot Layout
+        n_rows = len(years_in_group)
+        
+        fig = plt.figure(figsize=(15, 6 * n_rows))
+        grid = gridspec.GridSpec(2 * n_rows, 1, 
+                                 height_ratios=[0.8, 1] * n_rows, 
+                                 hspace=0.01)    
+        
+        for i, year in enumerate(years_in_group):
+            
+            ax_rain = fig.add_subplot(grid[2 * i, 0])
+            ax_flow = fig.add_subplot(grid[2 * i + 1, 0], sharex=ax_rain)
+            
+            # Select time-series belonging to the current year using Boolean mask
+            P_year = P_series[P_series.index.year == year]
+            Q_year = Q_series[Q_series.index.year == year]
+            
+            ## 3 Plot Rainfall
+            ax_rain.plot(P_year.index, P_year, color='navy', linewidth=0.5)
+            # Invert rainfall axis so rainfall is displayed downward
+            ax_rain.set_ylim(ax_rain.get_ylim()[::-1])
+            ax_rain.set_ylabel(f"Rainfall, P (mm/{P_freq})", fontsize=14) 
+            ax_rain.tick_params(axis='both', labelsize=14)
+            ax_rain.set_title(f"{catchment}_Rainfall_vs_Flow", fontsize=16)
+            ax_rain.grid(True, linestyle='--', alpha=0.4)
+            
+            ## 4 Plot Flow
+            ax_flow.plot(Q_year.index, Q_year, color='green', linewidth=0.8, label=Q_legend_label)
+            ax_flow.set_ylabel("Flow (m³/s)", fontsize=14)
+            ax_flow.tick_params(axis='both', labelsize=14)
+            ax_flow.grid(True, linestyle='--', alpha=0.4)
+            ax_flow.legend(fontsize=12)
+            
+        ## 5 Format Plot
+        plt.tight_layout()
+        
+        ## 6 Save Plot
+        filename = f"{catchment}_rainfallflow_{period_id}.png"
+            
+        # Add "_partN" to the filename when saving more than one image.
+        if len(year_groups) > 1:          
+            base, ext = os.path.splitext(filename)
+            saved_filename = f"{base}_part{group_id + 1}{ext}"
+        else:
+            saved_filename = filename
+                
+        plt.savefig(os.path.join(output_path, saved_filename), dpi=300)
+        plt.close()
+
+#%% Plot Observed Flows
+    
+def plot_flows(Q_series, Q_series_label, BF_series, BF_series_label, QF_series, QF_series_label, 
+               catchment, period_id, start, end, output_path, years_per_figure, flow_type=None):
+    """    
+
+    Parameters
+    ----------
+    Q_series, BF_series, QF_series: pandas.Series
+        DESCRIPTION.
+    catchment : str
+        Catchment name, used in the plot title and filename.
+    period_id : str
+        Unique identifier for simulation period to be plotted.
+    start, end : pandas.Timestamp
+        The start and end of time-series to be plotted
+    output_path : str
+        Folder to save the resulting plot to.
+    flow_type : str
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+    
+    ## Flow series
+    Q_series = Q_series.loc[start:end]    
+    QF_series = QF_series.loc[start:end]
+    BF_series = BF_series.loc[start:end]
+    
+    flow_series = {
+        "TF": (Q_series, Q_series_label, "black", 1.2), # (series, label, colour, linewidth)
+        "QF": (QF_series, QF_series_label, "orange", 0.7,),
+        "BF": (BF_series, BF_series_label, "royalblue", 0.7)
+        }
+    
+    ## Select flow type
+    if flow_type == None:
+        selected_flow = flow_series
+        plot_title = "Flow Components"
+    elif flow_type in flow_series:
+        selected_flow = {flow_type: flow_series[flow_type]}
+        plot_title = flow_series[flow_type][1]
+    else:
+        raise ValueError("Invalid flow type")
+    
+    years = sorted(Q_series.index.year.unique())
+    
+    # Create a list of year grouped for 1 exported image
+    # e.g. years_per_figure = 3 -> [ [2018, 2019, 2020], [2021, 2022] ]
+    year_groups = [
+        years[i : i+years_per_figure]
+        for i in range(0, len(years), years_per_figure)
+    ]        
+        
+    # Outer loop: one figure per year group
+    for group_id, years_in_group in enumerate(year_groups):
+        
+        n_rows = len(years_in_group)
+        
+        ## Plot Layout
+        fig, axes = plt.subplots(nrows=n_rows, ncols=1, figsize=(12, 4 * n_rows), sharey=True)
+        
+        # when n_rows > 1, plt.subplots returns axes in NumPy array i.e. axes = array([ax1, ax2, ax3])
+        # when n_rows == 1, plt.subplots returns a single axes object, 
+        # so we wrapped it in a list, otherwise the axes[i] below would rise a TypeError
+        if n_rows == 1:
+            axes = [axes]
+            
+        for i, year in enumerate(years_in_group):
+            
+            ax = axes[i]
+
+            for flow, (series, y_label, color, linewidth) in selected_flow.items():
+                
+                series_year = series[series.index.year == year]
+                
+                ax.plot(series_year.index, series_year.values, label=y_label, color=color, linewidth=linewidth)
+                
+            ## Format Plot
+            ax.set_title(str(year), fontsize=12, loc='left', pad=4)
+            ax.set_ylabel("Flow (m³/s)", fontsize=14)
+            ax.tick_params(axis="both", labelsize=14)
+            ax.grid(True, linestyle="--", alpha=0.4)                
+
+        axes[-1].set_xlabel("Date", fontsize=14)
+        axes[-1].legend(fontsize=12)
+        fig.suptitle(f"{catchment} {plot_title} ({period_id})", fontsize=16)
+        fig.tight_layout(rect=[0, 0, 1, 0.96])
+    
+        ## Save plot
+        filename = f"{catchment}_{plot_title}_{period_id}.png"
+        
+        # Add "_partN" to the filename when saving more than one image.
+        if len(year_groups) > 1:
+            base, ext = os.path.splitext(filename)
+            saved_filename = f"{base}_part{group_id + 1}{ext}"
+        else:
+            saved_filename = filename
+
+        plt.savefig(os.path.join(output_path, saved_filename), dpi=300)
+        plt.close()
 
 #%% Plot ET
 
@@ -234,7 +426,7 @@ def plot_et_actual_vs_potential(ETp_series, ETa_dict, catchment, period_id, outp
     plt.tight_layout()
     
     ## 4 Save plot
-    filename = f"{catchment} ETa vs ETp {period_id}.png"
+    filename = f"{catchment}_ETa_vs_ETp_{period_id}.png"
     filepath = os.path.join(output_path, filename)
     plt.savefig(filepath, dpi=300)
     plt.close()
@@ -249,7 +441,7 @@ def plot_et_ratio(ET_ratio_dict, catchment, start, end, period_id, output_path):
     catchment : str
         Catchment name, used in the plot title and filename.
     start, end : pandas.Timestamp
-        The start and end of time-series where the seasonal blocks is added.
+        The start and end of time-series to be plotted.
     period_id : str
         Unique identifier for simulation period to be plotted.
     output_path : str
@@ -280,7 +472,7 @@ def plot_et_ratio(ET_ratio_dict, catchment, start, end, period_id, output_path):
     plt.tight_layout()
     
     ## 4 Save plot
-    filename = f"{catchment} ET ratio {period_id}.png"
+    filename = f"{catchment}_ET_ratio_{period_id}.png"
     filepath = os.path.join(output_path, filename)
     plt.savefig(filepath, dpi=300, bbox_inches='tight')
     plt.close()
@@ -315,10 +507,7 @@ def plot_soil_water_depth_multi(SWd_dict, catchment, start, end, period_id, outp
         plt.plot(SWd_series.index, SWd_series.values, 
                  marker="o", linestyle='-', linewidth = 2, label = f"ETa $b_{{e}}$ = {sim_id}")
 
-    ## 2 Plot seasonal blocks
-    _plot_seasonal_blocks(start, end)
-
-    ## 3 Format plot
+    ## 2 Format plot
     plt.xlabel('Month', fontsize=14)
     plt.ylabel('Soil Storage (mm)', fontsize=14)    
     plt.title(f'Soil Water Variation for Different $b_{{e}}$ Values\n{catchment} {period_id}', fontsize=14)
@@ -326,8 +515,8 @@ def plot_soil_water_depth_multi(SWd_dict, catchment, start, end, period_id, outp
     plt.legend(fontsize=14)
     plt.tight_layout()
 
-    ## 4 Save plot
-    filename = f"{catchment} Soil water variation {period_id}.png"
+    ## 3 Save plot
+    filename = f"{catchment}_Soil_water_depth_{period_id}.png"
     filepath = os.path.join(output_path, filename)
     plt.savefig(filepath, dpi=300, bbox_inches='tight')
     plt.close()
@@ -350,7 +539,7 @@ def plot_soil_water_depth_single(ax, obs_SWd, sim_SWd, SWd_maxima, SWd_minima, f
     catchment : str
         Catchment name, used in the plot title and filename.
     sim_id : str
-        Simulation idenifier, used in the plot title and filename.
+        Simulation identifier, used in the plot title and filename.
     period_id : str
         Unique identifier for simulation period to be plotted.
 
@@ -361,14 +550,14 @@ def plot_soil_water_depth_single(ax, obs_SWd, sim_SWd, SWd_maxima, SWd_minima, f
     """
     
     ## 1 Plot soil water depth time-series
-    ax.plot(sim_SWd.index, sim_SWd.values, color="green", label="Simulated")
     ax.plot(obs_SWd.index, obs_SWd.values, color="black", label="Observed")
+    ax.plot(sim_SWd.index, sim_SWd.values, color="forestgreen", label="Simulated")
     
     ## 2 Plot maximum and minimum values of soil water depth per each flow period block
     ax.scatter(SWd_maxima["max_timestamp"], SWd_maxima["obs"], color="blue", s=12, zorder=3, label="Wet Soil Storage")
     ax.scatter(SWd_maxima["max_timestamp"], SWd_maxima["sim"], color="blue", s=12, zorder=3)
-    ax.scatter(SWd_minima["min_timestamp"], SWd_maxima["obs"], color="red",  s=12, zorder=3, label="Dry Soil Storage")
-    ax.scatter(SWd_minima["min_timestamp"], SWd_maxima["sim"], color="red",  s=12, zorder=3)
+    ax.scatter(SWd_minima["min_timestamp"], SWd_minima["obs"], color="red",  s=12, zorder=3, label="Dry Soil Storage")
+    ax.scatter(SWd_minima["min_timestamp"], SWd_minima["sim"], color="red",  s=12, zorder=3)
 
     ## 3 Plot slow flow periods
     _plot_flow_periods_lines(ax, obs_SWd, flow_periods)
@@ -439,7 +628,7 @@ def plot_soil_evaluation(obs_SWd, sim_SWd, flow_periods, SWd_maxima, SWd_minima,
     fig.tight_layout()
     
     ## 6 Save plot
-    filename = f"Soilwaterdepth_evaluation_{catchment}_{sim_id}_{period_id}).png"
+    filename = f"Soilwaterdepth_evaluation_{catchment}_{sim_id}_{period_id}.png"
     plt.savefig(os.path.join(output_path, filename), dpi=300)
     plt.close()    
     
@@ -533,8 +722,8 @@ def plot_runoff_depth(ax, obs_QF_mmdt, sim_QF_mmdt, QF_depth_cumulative, flow_pe
     """
     
     # 1 Plot cumulative volumes per each quick flow event
-    ax.scatter(QF_depth_cumulative["mid_flow_period"], QF_depth_cumulative["obs_volume"], color="blue", s=12, zorder=3, label="Filter-based Cumulative Runoff Depth")
-    ax.scatter(QF_depth_cumulative["mid_flow_period"], QF_depth_cumulative["sim_volume"], color="deepskyblue", s=12, zorder=3, label="Simulated Cumulative Runoff Depth")
+    ax.scatter(QF_depth_cumulative["mid_flow_period"], QF_depth_cumulative["obs"], color="blue", s=12, zorder=3, label="Filter-based Cumulative Runoff Depth")
+    ax.scatter(QF_depth_cumulative["mid_flow_period"], QF_depth_cumulative["sim"], color="deepskyblue", s=12, zorder=3, label="Simulated Cumulative Runoff Depth")
     
     # 2 Plot timeseries runoff depth
     ax2 = ax.twinx() # Runoff depth time-series (second y-axis, shares x-axis with Cumulative runoff depth)
@@ -542,9 +731,9 @@ def plot_runoff_depth(ax, obs_QF_mmdt, sim_QF_mmdt, QF_depth_cumulative, flow_pe
     ax.set_zorder(2) 
     ax.patch.set_visible(False)
     
-    ax2.plot(sim_QF_mmdt.index, sim_QF_mmdt.values, color="green", label="Simulated Runoff Depth")
-    ax2.plot(obs_QF_mmdt.index, obs_QF_mmdt.values, color="black", label="Filter-based Runoff Depth")    
-    
+    ax2.plot(obs_QF_mmdt.index, obs_QF_mmdt.values, color="black", linewidth = 1.0, label="Filter-based Runoff Depth")
+    ax2.plot(sim_QF_mmdt.index, sim_QF_mmdt.values, color="forestgreen", linewidth = 0.4, label="Simulated Runoff Depth")
+        
     # 3 Plot quick flow periods
     _plot_flow_periods_lines(ax, obs_QF_mmdt, flow_periods)
     
@@ -718,7 +907,7 @@ def plot_flow_timeseries(obs_F_m3s, sim_F_m3s, years_per_figure, flow_type, obs_
     
     years = sorted(obs_F_m3s.index.year.unique()) 
     
-    # Create a list of year grouped for 1 exported image
+    # Create a list of year, grouped for 1 exported image
     # e.g. years_per_figure = 3 -> [ [2018, 2019, 2020], [2021, 2022] ]
     year_groups = [ years[i : i+years_per_figure]
                     for i in range(0, len(years), years_per_figure)]
@@ -742,12 +931,14 @@ def plot_flow_timeseries(obs_F_m3s, sim_F_m3s, years_per_figure, flow_type, obs_
             
             ax = axes[i] 
             
-            year_mask = obs_F_m3s.index.year == year
+            # Select time-series belonging to the current year using Boolean mask
+            obs_F_m3s_year = obs_F_m3s[obs_F_m3s.index.year == year] 
+            sim_F_m3s_year = sim_F_m3s[sim_F_m3s.index.year == year] 
             
             ## 1 Plot Timeseries
-            ax.plot(obs_F_m3s.index[year_mask], obs_F_m3s[year_mask],
+            ax.plot(obs_F_m3s_year.index, obs_F_m3s_year,
                     label=obs_label, color='black', linewidth=0.8)
-            ax.plot(sim_F_m3s.index[year_mask], sim_F_m3s[year_mask],
+            ax.plot(sim_F_m3s_year.index, sim_F_m3s_year,
                     label='Simulated', color='blue', linewidth=0.8)
             
             ## 2 Format Plot
@@ -844,7 +1035,7 @@ def plot_flow_waterbalance(obs_F_wb, sim_F_wb_dict, wb_deficit,
     plt.tight_layout()
     
     ## 4 Save plot
-    filename = f"{flow_type} Water Balance {catchment} {period_id}.png"
+    filename = f"{flow_type}_Water_Balance_{catchment}_{period_id}.png"
     filepath = os.path.join(output_path, filename)
     plt.savefig(filepath, dpi=300)
     plt.close()

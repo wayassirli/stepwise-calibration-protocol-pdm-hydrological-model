@@ -1,12 +1,12 @@
 ## 1 Introduction
-### Probability Distributed Model (PDM)
+### 1.1 Probability Distributed Model (PDM)
 Probability Distributed Model (Moore, 2007) is a lumped, conceptual rainfall-runoff model, where the spatial variability of the soil storage is represented by probability distribution. It is a saturation-excess model with baseflow and quick flow as the sub-component. PDM is built within the InfoWorks ICM software.
 
-### Step-wise calibration protocol
+### 1.2 Step-wise Calibration Protocol
 The step-wise calibration protocol (Vansteenkiste, 2014) is a calibration approach in which parameters controlling different hydrological process are calibrated sequentially against multiple derived information relevant to each process. This protocol is adapted from top-down modelling approach (Willems, 2014) and implemented to five different hydrological models including the PDM. 
 
-### Tool overview
-This tool facilitates the manual step-wies calibration protocol by automatically generating the evaluation indicators (statistical indices and plots) of multiple PDM simulation output  against different calibration targets. The configurations of calibration are defined through Excel configuration files, while the execution is with command-line arguments via anaconda prompt. 
+### 1.3 Tool Overview
+This tool facilitates the manual step-wies calibration protocol by automatically generating the evaluation indicators (statistical indices and plots) of multiple PDM simulation output  against different calibration targets. The tool also supports overal modell performance. Both configurations of calibration and evaluation are defined through Excel configuration files, while the execution is with command-line arguments via Anaconda Prompt. In addition, the tool allows for visualization of observation time-series. 
 
 ## 2 Installation
 Download this repository and install the required Python packages.
@@ -20,7 +20,9 @@ The project is organized into the following folders and files. No additional fol
 │
 ├── README.md
 ├── sourcecode/
-│   ├── calibration.py
+│   ├── commands.py
+│   └── config.py
+│   └── directory.py
 │   └── main.py
 │   └── observation.py
 │   └── plot.py
@@ -43,11 +45,11 @@ The project is organized into the following folders and files. No additional fol
             └── [calibration plots]
 ```
 
-### 3.1 Evaluation folder
+### 3.1 Evaluation Folder
 The `evaluation/` folder contains `plot/` subfolder and `config_periods.xlsx` Excel. The `plot/` subfolder contains the result of different submodel and overall evaluation plots.<br>
-The `config_calibration.xlsx` Excel defines the calibration period, including the start and end dates of the simulation period to be evaluated. It also specifies the quick and slow flow period associated with each calibration period.  
+The `config_periods.xlsx` Excel defines the calibration and/or evaluation period, including the start and end dates. It also specifies the quick and slow flow period associated with each calibration period.  
 
-### 3.2 Observation folder
+### 3.2 Observation Folder
 The `observation/` folder contains `observations/` subfolder and `config_observations.xlsx` Excel.
 
 - Place all the **observation time-series** for all catchments required for the calibration in the `observations/` subfolder. The required observation time-series for each catchment are **rainfall, evapotranspiration (ETp), flow, baseflow, quickflow**.<br>
@@ -57,7 +59,7 @@ The `observation/` folder contains `observations/` subfolder and `config_observa
 
 The `config_observations.xlsx` Excel is used to assign the associated observation time-series (e.g. rainfall, ETp, flow) to each catchment. The same observation time-series can be assigned to different catchments, for example, nearby catchments can use the same ETp data.
 
-### 3.3 Simulation folder
+### 3.3 Simulation Folder
 The `simulation/` folder contains `simulationoutput/` subfolder and `config_simulations.xlsx` Excel.
 
 - Place all the simulation output files in the `simulationoutput/` subfolder. 
@@ -76,13 +78,17 @@ The calibration of simulation output is configured through the three Excels in w
 ⬜ **Grey cells** Automatically filled, do not modify. If your simulation exceeds the pre-filled 5000 rows, drag the formula down as required. 
 
 <details>
-<summary>4.1 Calibration Configuration</summary>
+<summary> 
 
-**Excel: 'calibration_config.xlsx'**  
+### 4.1 Period Configuration 
+
+</summary>
+
+**Excel: 'config_periods.xlsx'**  
 **Sheet 1: 'simulation_periods'**
 | Column | Cell | Type | Description |
 |---|---|---|---|
-| `catchment` | 🟩 | String | Write the name of the catchment to be calibrated or evaluated. The catchment name must be consistent across configuration files. It is used as an argument when running the program to filter which catchment to be evaluated. It is also used in Figure title. |
+| `catchment` | 🟩 | String | Write the name of the catchment to be calibrated and evaluated. The catchment name must be consistent across configuration files. It is used as an argument when running the program to filter which catchment to be evaluated. It is also used in Figure title. |
 | `start_date` | 🟩 | DateTime<br>(DD/MM/YYYY HH:MM) | Write the start of the evaluation period, excluding warm up period. It is used to extract the time-series data evaluated, and as the Date/x-axis in the plots. |
 | `end_date` | 🟩 | DateTime<br>(DD/MM/YYYY HH:MM) | Write the end of the evaluation period.It is used to extract the time-series data evaluated, and as the Date/x-axis in the plots.
 | `period_id` | 🟩 | String | Write a unique identifier for the period in which the simulation is to be evaluated (e.g. `Jan21-Jan25`), refering to the period defined by start_date and end_date. The `period_id` value must be consistent across configuration files. It is used as an argument when running the program to filter which period the simulations to be evaluated. |
@@ -94,16 +100,20 @@ The calibration of simulation output is configured through the three Excels in w
 Each catchment will have quick and flow period. Multiple rows with the same catchment and flow_type corresponds to the number of events that the catchment and the flowtype has, each cell represent the start time-step of that period.
 | Column | Cell | Type | Description |
 |---|---|---|---|
-| `start_timestep` | 🟩 | Integer | Copy the starting time-step of each quick and slow flow event of one simulation period generated by WETSPRO into this column. The number of rows corresponds to the number of quick and slow flow events identified for the associated simulation period. |
-| `flow_period_type` | 🟩 | String | Enter “quick” for quick flow events and “slow” for slow flow events. Specify a flow type for every start_timestep, do not leave any cells blank. Together with start_timestep, this column is used to define the flow periods over which rainfall depth and flow volume are accumulated for submodel calibration. |
 | `catchment` | 🟩 | String | Write the name of the catchment to which the previous quick/slow flow periods belongs. The catchment name must be consistent across configuration files. |
 | `period_id` | 🟩| String | Write the `period_id` in which the quick/slow flow events are extracted.<br>The `period_id` value must be consistent across configuration files. |
+| `flow_period_type` | 🟩 | String | Enter “quick” for quick flow events and “slow” for slow flow events. Specify a flow type for every start_timestep, do not leave any cells blank. Together with start_timestep, this column is used to define the flow periods over which rainfall depth and flow volume are accumulated for submodel calibration. |
+| `start_timestep` | 🟩 | Integer | Copy the starting time-step of each quick and slow flow event of one simulation period generated by WETSPRO into this column. The number of rows corresponds to the number of quick and slow flow events identified for the associated simulation period. |
 </details>
 
 <details>
-<summary>4.2 Observation Configuration</summary>
+<summary>
 
-**Excel: 'observation_config.xlsx'**  
+### 4.2 Observation Configuration
+
+</summary>
+
+**Excel: 'config_observation.xlsx'**  
 Each row corresponds to the information of one catchment including its size and metadata of the associated hydrological time-series.
 | Column | Cell | Type | Description |
 |---|---|---|---|
@@ -121,8 +131,15 @@ Each row corresponds to the information of one catchment including its size and 
 | `quickflow_freq` | 🟩 | String | Write the frequency of the quickflow time-series using the format `number + unit` , (e.g. `15min`, `2H`, `1D`, `3M`). |
 </details>
 
+
+
 <details>
-<summary>4.3 Simulation Configuration</summary>
+<summary>
+
+### 4.3 Simulation Configuration
+
+</summary>
+
 
 **Excel: 'simulation_config.xlsx'**  
 **Sheet 1: scenarios**
@@ -131,14 +148,12 @@ Each row corresponds to the information of one catchment including its size and 
 | `simulation_id` | 🟩 | String | Write the unique identifier for your simulation, as a combination of your catchment, the period you simulated it, and your parameter set |
 | `catchment` | 🟩 | String | Write the name of the catchment that the simulation output belongs to. The name must match the `catchment` value in the other configuration files. |
 | `period_id` | 🟩 | String | Write the `period_id` in which the simulation is to be evaluated. The `period_id` value must be consistent across configuration files. It is used to select the part of the simulation between the corresponding `start_date` and `end_date` for evaluation.|
-| `stage` | 🟩 | String | Specify the stage of model calibration and evaluation procedure. Specify `submodel` to calibrate submodel(s) against a calibration target, or `overall` to evaluate the overall performance of the parameter set |
-| `calibration_targets` | 🟩 | String | Specify calibration target to evaluate the performance of the simulation (parameter set). Specify the field when the `stage` is set to `submodel`. The available calibration targets are `recession`, `ETa`, `soil`, `runoff`. The same simulation can be calibrated aganist different targets, in which case, you have to wrote it twice in different rows. |
+| `calibration_target` | 🟩 | String | Specify calibration target to evaluate the performance of the simulation (parameter set). Specified this as the options when the `command` on Anaconda Prompt is set to `calibrate_to`. The available calibration targets are `recession`, `ET`, `soil`, `runoff`. The same simulation can be calibrated aganist different targets, in which case, you have to wrote it twice in different rows. |
 | `evaluation_method` | 🟩 | String | Specify the evaluation method used to assess the overall model performance. This field applies only when `stage` is set to `overall`. The available evaluation methods are `statistics` and `waterbalance`. |
 | `flow_type` | 🟩 | String | Specify the flowtype to be calibrated/evaluated (`QF`, `BF`, or `TF`). |
 | `ETa_soilmoisture_filename` | 🟩 | String | Write the filename of the ETa and soil moisture time-series associated with your simulation_id, including the InfoWorks output file extension (e.g. `ETa_soilmoisture_sim1.csv`). Enter when calibrating ETa or soil  storage submodel, leave empty otherwise. |
 | `baseflow_quickflow_filename` | 🟩 | String | Write the filename of the quick flow and baseflow time-series associated with the simulation_id, including the InfoWorks output file extension (e.g. `QF_BF_sim1.csv`). Enter the filename when calibrating runoff related storage submodels, leave empty otherwise. |
 | `λSWd` | 🟥 | Float | Enter the Box-Cox parameter λ value (0-1) when calibrating soil storage submodel |
-| `λBF` | 🟥 | Float | Enter the Box-Cox parameter λ value (0-1) when calibrating recharge submodel |
 | `λQF` | 🟥 | Float | Enter the Box-Cox parameter λ value (0-1) when calibrating runoff submodel |
 
 **Excel: 'simulation_config.xlsx'**  
@@ -147,7 +162,8 @@ Each row represents one simulation scenario, where you simulated a parameter set
 | Column | Cell | Type | Description |
 |---|---|---|---|
 | `simulation_id` | ⬜ | String | Mirrors `simulation_id` value on simulations sheet |
-| `stage` | ⬜ | String | Mirrors `stage` value on simulations sheet |
+| `catchment` | ⬜ | String | Mirrors `catchment` value on simulations sheet |
+| `period_id` | ⬜ | String | Mirrors `period_id` value on simulations sheet |
 | `calibration_target` | ⬜ | String | Mirrors `calibration_target` value on simulations sheet |
 | `evaluation_method` | ⬜ | String | Mirrors `evaluation_method` value on simulations sheet |
 | `flowtype` | ⬜ | String |  |
@@ -171,89 +187,178 @@ Each row represents one simulation scenario, where you simulated a parameter set
 </details>
 
 ## 5 Usage
-Following the step-wise protocol, each submodel will be calibrated one at a time, by evaluating the performance of different parameter sets/simulations at once. This is executed using command-line argument in the Anaconda prompt. Navigate to the project directory before executing the command. 
+This tool is executed through command-line arguments in the Anaconda Prompt as described below. Navigate to the project directory before executing a command. 
+
 ```bash
-cd path/to/calibrationtools
-python main.py <catchment> <period_id> <stage> <calibration_target/evaluation_method> [flowtype]
+cd pathtocalibrationtools/sourcecode
+python main.py <catchment> <period_id> <command> <option> [flowtype]
 ```
 1 `catchment`<br>
 Write the name of catchment to be calibrated or evaluated. It must match the `catchment` name in the  configuration files. The argument selects the catchment and its associated configuration information for evaluation.<br>
 2 `period_id`<br>
 Write the unique identifier of the period the simulations to be evaluated. It must match the `period_id` value in the configuration files. The arguments selects the period to be evaluated and its associated configuration information.<br>
-3 `stage`<br>
-Write `submodel` to evaluate simulations against a calibration target, or `overall` to evaluate their overall performances.<br>
-4 `calibration_target`<br>
-When `stage` = `submodel`, write one out of the following calibration targets `recession`, `ET`, `soil`, `runoff` for submodel calibration.<br>
-5 `evaluation method`<br>
-When `stage` = `overall`, write either `statistics` or `waterbalance` for overall performance evaluation.<br>
-6 `flowtype`<br>
+3 `command`<br>
+Write `plot_observation` to plot observation time-series, `calibrate_to` to evaluate simulations against a calibration target, `evaluate` to evaluate their overall performances.<br>
+4 `option`<br>
+When `command` = `plot_observation`, write one out of the following observation `rainfallflow`, `flow`, `ETp` to plot their time-series.<br>
+When `command` = `calibrate_to`, write one out of the following calibration targets `recession`, `ET`, `soil`, `runoff` for submodel calibration.<br>
+When `command` = `evaluate`, write either `statistics` or `waterbalance` for overall performance evaluation.<br>
+5 `flowtype`<br>
 Write `QF`, `BF`, or `TF` if the calibration or evaluation is to be executed only for a specific type of flow.<br>
 
+Example
+```bash
+python main.py BlueCreek 2019-2021 plot_observation rainfallflow
+python main.py BlueCreek 2019-2021 calibrate_to ET
+python main.py BlueCreek 2023-2025 evaluate waterbalance QF
+```
+
+**Note:** remember to save all the updates made in configuration files before executing the command-line argument
+
 ## 6 Output/Examples
+
+### 6.1 Calibration Target: Recession
+<p align="left">
+    <img src="figures/Baseflow_timeseries_BlueCreek_scenario1_2020-2021.png" width="48%">
+    <img src="figures/Baseflow_timeseries_BlueCreek_scenario2_2020-2021.png" width="48%">
+</p>
+
+<p align="left">
+    <img src="figures/Baseflow_timeseries_BlueCreek_scenario3_2020-2021.png" width="48%">
+    <img src="figures/Baseflow_timeseries_BlueCreek_scenario4_2020-2021.png" width="48%">
+</p>
+
+### 6.2 Calibration Target: ET
+The following figures illustrate ET ratio and soil water depth variation as calibration target of ET submodel parameters.
+
+<p align="left">
+    <img src="figures/BlueCreek_ET_ratio_2019_2021.png" width="48%" alt="ET ratio">
+    <img src="figures/BlueCreek_Soil_water_depth_2019_2021.png" width="48%" alt="Soil water depth">
+</p>
+
+<p align="left">
+    <img src="figures/BlueCreek_ETa_vs_ETp_2019_2021.png" width="48%" alt="ETa versus ETp">
+</p>
+
+### 6.3 Calibration Target: Soil
+<p align="left">
+    <img src="figures/Soilwaterdepth_evaluation_BlueCreek_scenario4_2019_2021.png" width="48%">
+    <img src="figures/Soilwaterdepth_evaluation_BlueCreek_scenario7_2019_2021.png" width="48%">
+</p>
+
+<p align="left">
+    <img src="figures/Soilwaterdepth_evaluation_BlueCreek_scenario8_2019_2021.png" width="48%">
+    <img src="figures/Soilwaterdepth_evaluation_BlueCreek_scenario9_2019_2021.png" width="48%">
+</p>
+
+### 6.4 Calibration Target: Runoff
+<p align="left">
+    <img src="figures/Runoffdepth_evaluation_BlueCreek_scenario4_2019_2021.png" width="80%">
+</p>
+
+<p align="left">
+    <img src="figures/Runoffdepth_evaluation_BlueCreek_scenario7_2019_2021.png" width="80%">
+</p>
+
+<p align="left">
+    <img src="figures/Runoffdepth_evaluation_BlueCreek_scenario8_2019_2021.png" width="80%">
+</p>
+
+<p align="left">
+    <img src="figures/Runoffdepth_evaluation_BlueCreek_scenario9_2019_2021.png" width="80%">
+</p>
+
+### 6.5 Evaluation Method: Statistics
+
+### 6.6 Evaluation Method: Water Balance
 
 ## 7 Methodology
 The PDM model was developed by Moore (2007) is calibrated using the protocol developed by Vansteenkiste (2014), which is adapted from the VHM top-down modelling approach by Willems (2014). As part of the calibration protocol, additional time-series pre-processing is done based on Willems (2009). 
 
+### 7.1 Probability Distributed Model (PDM)
+
 <details>
-<summary>7.1 Probability Distributed Model (PDM)</summary>
-The PDM model structure consists of four following submodels.<br>
+<summary>Show details</summary>
+The PDM model structure consists of four following submodels as illustrated in the Figure below.<br>
+<br>
+<p align="left">
+    <img src="figures/PDMschematic_default.png" width="50%">
+</p>
 
-**The evapotranspiration (ET) submodel** simulates actual evapotranspiration as limited by the soil moisture. The one parameter evapotranspiration exponent controls how the ratio of actual to potential ET responds to soil moisture.<br>
+#### 7.1.1 The evapotranspiration (ET) Submodel 
+Simulates actual evapotranspiration as limited by the soil moisture. The one parameter evapotranspiration exponent controls how the ratio of actual to potential ET responds to soil moisture.<br>
 
-**The routing submodels** simulate the timing of subflow components. The original PDM configuration implements cascade linear reservoir routing for quick flow component and groundwater routing for baseflow component. PDM also offers linear reservoir routing as an alternative for both subflow components. Each routing submodel has a different number of time-related parameters (see config_simulations.xlsx) that controls the shape of the subflow hydrograph.<br>
+#### 7.1.2 The Routing Submodels
+Simulate the timing of subflow components. The original PDM configuration implements cascade linear reservoir routing for quick flow component and groundwater routing for baseflow component. PDM also offers linear reservoir routing as an alternative for both subflow components. Each routing submodel has a different number of time-related parameters (see config_simulations.xlsx) that controls the shape of the subflow hydrograph.<br>
 
-**The soil storage submodel** simulates the depth of water held in soil storages across the catchment. The soil storage varies spatially across the catchment, which is characterised by probability distribution. This soil storage capacity determines when soil is saturated and excess water is produced. PDM provides different probability distribution models, including pareto, triangular, and rectangular. The three soil storage parameters (see config_simulations.xlsx) controls the probability distribution of the soil storage.<br>
+#### 7.1.3 The Soil Storage Submodel 
+Simulates the depth of water held in soil storages across the catchment. The soil storage varies spatially across the catchment, which is characterised by probability distribution. This soil storage capacity determines when soil is saturated and excess water is produced. PDM provides different probability distribution models, including pareto, triangular, and rectangular. The three soil storage parameters (see config_simulations.xlsx) controls the probability distribution of the soil storage.<br>
 
-**The recharge submodel** simulates the amount of water directed to the groundwater storage before being routed as baseflow, which is referred to as recharge or dᵢ. PDM provides three different recharge model, including standard, demand-based and splitting. For the standard and demand-based models, recharge is drawn directly from the water in the soil storage, reducing the soil water depth. This is described in the following equation:<br>
+#### 7.1.4 The Recharge Submodel
+Simulates the amount of water directed to the groundwater storage before being routed as baseflow, which is referred to as recharge or dᵢ. PDM provides three different recharge model, including standard, demand-based and splitting. For the standard and demand-based models, recharge is drawn directly from the water in the soil storage, reducing the soil water depth. This is described in the following equation:<br>
 $$ 
 πᵢ = Pᵢ − E′ᵢ − dᵢ
 $$
-where πᵢ is net rainfall that contributes to water in the soil storage, Pᵢ is total rainfall, and E′ᵢ as evapotranspiration. For the splitting model, dᵢ = 0. Instead, the amount of recharge as well as runoff (the amount of water directed to surface storage) are drawn from the excess water proeduced by the saturated soil storages. The parameters for each model control how much water is allocated into recharge according to their own mechanism.
+where πᵢ is net rainfall that contributes to water in the soil storage, Pᵢ is total rainfall, and E′ᵢ as evapotranspiration. For the splitting model, dᵢ = 0 as illustrated in the Figure below. 
+
+<p align="left">
+    <img src="figures/PDMschematic_splittingmethod.png" width="50%">
+</p>
+
+Instead, the amount of recharge as well as runoff (the amount of water directed to surface storage) are drawn from the excess water proeduced by the saturated soil storages. The parameters for each model control how much water is allocated into recharge according to their own mechanism.
 </details>
 
+### 7.2 Time-series Pre-processing
+
 <details>
-<summary>7.2 Time-series Pre-processing</summary>
+<summary>Show details</summary>
 Prior to calibration and evaluation, hyrological time-series are pre-processed using WETSPRO (Willems, 2009), resulting in derived information used throughout the calibration and evaluation processes. WETSPRO is used to filter flow into quick flow and baseflow components, extract POT high flows, as well as near-independent quick and slow flow events.
 </details>
 
+### 7.3 Step-wise Calibration Protocol
+
 <details>
-<summary>7.3 Step-wise Calibration Protocol</summary>
+<summary>Show details</summary>
 The sequence of step-wise protocol implemented for PDM are divided into multiple calibration targets. The structure of VHM modelling approach (Willems, 2014a) allows clear one-on-one sequential calibration between submodels and target variables. However, difference in the conceptualization and representation of hydrological processes in PDM, particularly the stronger interactions between hydrological processes mean that sometimes, one calibration target is used to evaluated multiple submodels at once. For instance, while the soil moisture and runoff in VHM are separately represented with different submodels, they are both represented explicitly by soil storage submodel in PDM. VHM also did not explicitly parameterize recharge while PDM does. The following sections describe the calibration targets and how the PDM submodels are calibrated against them. <br>
 
-**Recession**<br>
+#### 7.3.1 Recession
 The recession characteristics of the flow hydrograph are used to calibrate the routing submodels. When the linear reservoir model is selected, the calibrated recession constants from WETSPRO can be directly applied here. When the original PDM routing models are selected, the parameters can be calibrated by matching the shape of the subflow components from the WETSPRO filter results.
 
-**ET**<br>
+#### 7.3.2 ET
 Evapotranspiration-related variables are used to calibrate the evapotranspiration (ET) model. The one parameter (ET exponent) is primarily calibrated according to the expected seasonal ratio between the actual and potential ET. For example, in temperate regions like Belgium, ET is almost at potential rate during winter, while in summer it remains below the potential rate. Actual vs potential evapotranspiration and soil water depth (SWd) variation plots are provided as additional consideration in calibration.
 
-**Soil**<br>
+#### 7.3.3 Soil
 Soil water depth (SWd), specifically slow-flow event-based accumulated soil water depth, is used as calibration targets of multiple submodels depending on how the recharge model is configured. Soil water depth is calculated from the water balance:
 SWdᵢ = SWdᵢ₋₁ + Pᵢ − ETaᵢ − Qᵢ
 where SWdᵢ₋₁ is initial soil water depth derived from soil moisture deficit (smd) and Smax at the end of warm-up period. 
 When standard or demand-based model is selected, recharge or dᵢ directly influences soil water depth. Therefore, soil water depth becomes a calibration target for both soil storage model and recharge submodels.
 When splitting model is selected, recharge and runoff runoff are both drawn from the excess water once the soil storage is saturated. Therefore, soil water depth is primarily used to calibrate soil storage submodel. In addition, water balance of total flow is also recommended as a target variable to evaluate soil storage submodel. The total flow volume is directly informative to the soil storage submodel performance in representing excess water generated when soil storage is saturated.
 
-**Runoff**<br>
+#### 7.3.4 Runoff
 In contrast, VHM does not explicitly parameterize a recharge model.* 
 Runoff, specifically quick-flow event-based accumulated runoff, is a calibration target of multiple submodels that also depends on how recharge model is configured.
 When standard or demand-based model is selected, runoff also becomes the calibration target for both soil storage and recharge submodel. Recharge, or dᵢ, influences the amount of water stored in the soil storage, while the resulting soil storage saturation influence the amount of excess water that goes into runoff.
 When Splitting model is selected, excess water are splitted into runoff and recharge. Therefore, the quick flow runoff volume is primarly used to calibrate the splitting parameters.
 </details>
 
+### 7.4 Overall Performance Evaluation
+
 <details>
-<summary>7.4 Overall Performance Evaluation</summary>
+<summary>Show details</summary>
 After all submodels are sequentially calibrated, multiple candidate parameter sets are evaluated using the following methods. This tool does not implement the evaluation procedure described in Sections 3.4.3 and 3.4.4 of Vansteenkiste, 2014.<br>
 
-**Statistics**<br>
+#### 7.4.1 Statistics
 The statistical indices evaluates the performance of the simulated flow and subflow time-series against the observed/empirical values. The statistical indices include root mean squarred error (RMSE), mean absolute error (MAE), and Nash-Sutcliffe efficiency (NSE). Beside the statistical indices, the shape of flow and subflow(s) hydroraph as well as the hydrogaph's peak should be evaluated visually.<br>
 
-**Water balance**<br>
+#### 7.4.2 Water Balance
 Water balance evaluates whether the simulation produces a similar runoff volume compared to the observed one. Water balance deficit (WBD) indicates the accumulated difference between the simulation and the observation over the evaluation period.<br> 
 </details>
 
 ## 8 References
 
 Moore, R. J. (2007). The PDM rainfall-runoff model. Hydrology and Earth System Sciences, 11(1), 483–499. https://doi.org/10.5194/hess-11-483-2007
+
+OpenAI. (2026). ChatGPT [Large language model]. https://chatgpt.com/
 
 Vansteenkiste, T., Tavakoli, M., Van Steenbergen, N., De Smedt, F., Batelaan, O., Pereira, F., & Willems, P. (2014). Intercomparison of five lumped and distributed models for catchment runoff and extreme flow simulation. Journal of Hydrology, 511, 335–349. https://doi.org/10.1016/j.jhydrol.2014.01.050
 
@@ -262,3 +367,8 @@ Willems, P. (2009). A time series tool to support the multi-criteria performance
 
 Willems, P. (2014). Parsimonious rainfall–runoff model construction supported by time series processing and validation of hydrological extremes – Part 1: Step-wise model-structure identification and calibration approach. Journal of Hydrology, 510, 578–590. https://doi.org/10.1016/j.jhydrol.2014.01.017
 
+## 9 AI Assistance
+
+OpenAI ChatGPT (GPT-6) was used as a supplementary tool during the development of this project, primarily for Python programming assistance, code debugging, explaining programming concepts, improving code documentation, and developing plotting and configuration-validation workflows.<br>
+
+All suggestions were reviewed and adapted by the author. The author remains responsible for the final code, implementation, and interpretation of results.

@@ -4,37 +4,24 @@
 Created on Tue Mar  3 12:35:24 2026
 @author: Way
 """
-import os
+
 import pandas as pd
 import numpy as np
-from directory import project_path
+import os
+
 from observation import Observation
 from simulation import Simulation
+
+from config import config_obs
+from config import config_sim
+from config import config_periods
+from config import flow_periods
+
+from plot import plot_rainfall_flow, plot_flows, plot_et
 from plot import plot_et_actual_vs_potential, plot_et_ratio, plot_soil_water_depth_multi
 from plot import plot_soil_evaluation, plot_soil_report
 from plot import plot_runoff_evaluation, plot_runoff_report
 from plot import plot_flow_timeseries, plot_flow_waterbalance
-
-#%% config.py
-# Used to filter rows on configuration excels
-
-config_obs = pd.read_excel(
-    os.path.join(project_path, "observation", "config_observations.xlsx"))
-
-simulations = pd.read_excel(
-    os.path.join(project_path, "simulation", "config_simulations.xlsx"), 
-                 sheet_name="simulations")
-parameters = pd.read_excel(
-    os.path.join(project_path, "simulation", "config_simulations.xlsx"), 
-                 sheet_name="parameters")
-config_sim = simulations.merge(parameters, on=["simulation_id", "stage", "calibration_target","evaluation_method", "flow_type"])
-
-config_periods  = pd.read_excel(
-    os.path.join(project_path, "evaluation", "config_periods.xlsx"), 
-                 sheet_name="simulation_periods")
-flow_periods = pd.read_excel(
-    os.path.join(project_path, "evaluation", "config_periods.xlsx"), 
-                 sheet_name="flow_periods")
 
 #%% Helper Functions
 
@@ -411,7 +398,7 @@ def _get_flow(source, flow_type, start, end):
     ----------
     source : Simulation or Observation
         The observed or simulated object the flow is extracted from.
-    flowtype : {"QF", "BF", "TF"}
+    flow_type : {"QF", "BF", "TF"}
         The flow type selected to be returned (baseflow, quick flow or total flow).
     start, end : pandas.Timestamp
         Start and end of the simulation period used to slice the time-series.
@@ -424,7 +411,7 @@ def _get_flow(source, flow_type, start, end):
     Raises
     ------
     ValueError
-        If flowtype is not one of "QF", "BF", "TF".
+        If flow_type is not one of "QF", "BF", "TF".
     """
     
     if flow_type == "QF":
@@ -459,8 +446,80 @@ def _get_obs_label(flow_type):
     }
     return labels[flow_type]
 
+def _print_execution_progress(command_label, option, sim_number, total_sim, sim_id, flow_type = None):
+    """Print messages when command is executed
+
+    Parameters
+    ----------
+    command_label, option : str
+        Label describing command executed e.g. "Calibration Target" or "Evaluation Method", and the option of specific command.
+    sim_number, total_sim : int, 
+        Current processed simulation and Total number of simulation being processd.
+    sim_id : str
+        Unique simulation identifier, used in the plot title and filename..
+    flow_type : {"QF", "BF", "TF"}
+        Which flow component being executed.
+
+    Returns
+    -------
+    None.
+
+    """
+    
+    # 1 Print header
+    if sim_number == 1:
+        message = f"{command_label}: {option}"
+        
+        if flow_type is not None:
+            message = f"{command_label}: {option} | Flow type: {flow_type}"
+            
+    print(message)
+    
+    # 2 Print message
+    print(f"Processing simulation {sim_number}/{total_sim}")
+
 #%% Public Functions
 
+def plot_observed_rainfall_flow(catchment, period_id, start, end, directories):
+    
+    # Print message that the observation is being plotted
+    print(f"Plotting observed rainfall vs flow for {catchment}...")
+        
+    obs_row = config_obs[config_obs["catchment"] == catchment].iloc[0]
+    obs = Observation(obs_row, directories.obs)
+                
+    plot_rainfall_flow(P_series = obs.P_mmdt.loc[start:end], Q_series = obs.Q_m3s.loc[start:end], 
+                       P_freq = obs.P_freq, 
+                       catchment = catchment, period_id = period_id, 
+                       start = start, end = end, 
+                       output_path = directories.observation_plots, 
+                       Q_legend_label = "Observed Rainfall vs Flow",
+                       years_per_figure = 1)
+    
+    print(f"Observation plot saved to: {directories.observation_plots}")
+
+def plot_observed_flows(catchment, period_id, start, end, directories, flow_type=None):
+        
+    obs_row = config_obs[config_obs["catchment"] == catchment].iloc[0]
+    obs = Observation(obs_row, directories.obs)
+    
+    # Print message that the observation is being plotted
+    if flow_type is None:
+        print(f"Plotting observed flows components for {catchment}...")
+    else:
+        print(f"Plotting observed {flow_type} for {catchment}...")
+    
+    plot_flows(Q_series = obs.Q_m3s.loc[start:end], Q_series_label = "Observed Flow", 
+               BF_series = obs.BF_m3s.loc[start:end], BF_series_label = "Filtered Baseflow", 
+               QF_series = obs.QF_m3s.loc[start:end], QF_series_label = "Filtered Quick Flow", 
+               catchment = catchment, period_id = period_id, 
+               start = start, end = end, 
+               output_path = directories.observation_plots,
+               years_per_figure = 3,
+               flow_type = None)
+    
+    print(f"Observation plot saved to: {directories.observation_plots}")
+        
 def evaluate_recession(catchment, period_id, start, end, flow_type, directories):
     """Evaluate routing submodels' performance using flow recession characteristics in flow time-series as a calibration target.
     
@@ -488,20 +547,33 @@ def evaluate_recession(catchment, period_id, start, end, flow_type, directories)
     ## 1 Observation
     obs_row = config_obs[config_obs["catchment"] == catchment].iloc[0]
     obs    = Observation(obs_row, directories.obs)
+    
     obs_F_m3s = _get_flow(obs, flow_type, start, end)
+    
+    if flow_type == "QF":
+        obs._quality_check_timeseries(obs_F_m3s, start, end, obs.QF_freq, "Quick Flow")
+    elif flow_type == "BF":
+        obs._quality_check_timeseries(obs_F_m3s, start, end, obs.BF_freq, "Baseflow")        
     
     ## 2 Simulation
     sim_rows = config_sim[
         (config_sim["catchment"] == catchment) &            # passed in from main.py's command line argument
-        (config_sim["period_id"] == period_id) &            # idem
-        (config_sim["stage"] == "submodel") &               
+        (config_sim["period_id"] == period_id) &            # idem           
         (config_sim["calibration_target"] == "recession") & 
         (config_sim["flow_type"] == flow_type)              # When flow_type is not specified as argument in the command-line->
-    ]                                                       # -> functions are looped for all flowtypes (hard-coded) in main.py 
-         
+    ]                                                       # -> functions are looped for all flow_types (hard-coded) in main.py 
+    
+    sim_number = 0
     for _, sim_row in sim_rows.iterrows():
+        sim_number += 1 # Track the number of simulation currently being processed
         sim = Simulation(sim_row, directories.sim)
+                
         sim_id = sim.id
+        
+        # Print message that the simulation being processed
+        _print_execution_progress(command_label = "Calibration Target", option = "recession", 
+                                  sim_number = sim_number, total_sim = len(sim_rows), sim_id = sim_id)
+        
         sim_F_m3s = _get_flow(sim, flow_type, start, end)
         
         ## 3 Plot
@@ -511,6 +583,10 @@ def evaluate_recession(catchment, period_id, start, end, flow_type, directories)
                              catchment = catchment, sim_id = sim_id, period_id = period_id, 
                              output_path = directories.recession[flow_type], 
                              show_statistics=False)
+    
+    # Print message
+    print(f"Calibration Target: recession completed ({len(sim_rows)} simulations).")
+    print(f"Plots saved to: {directories.recession[flow_type]}")
 
 def evaluate_et(catchment, period_id, start, end, directories):
     """Evaluate ET submodel performance using seasonal ET ratio as a calibration target, 
@@ -547,12 +623,17 @@ def evaluate_et(catchment, period_id, start, end, directories):
     ## 1 Observation
     obs_row = config_obs[config_obs["catchment"] == catchment].iloc[0]
     obs     = Observation(obs_row, directories.obs)
-    obs_ETp_freq = obs.ETp_freq
-    obs_ETp_freq_seconds = _convert_freq_to_seconds(obs_ETp_freq)
+        
+    obs_ETp_freq_seconds = _convert_freq_to_seconds(obs.ETp_freq)
 
     obs_ETp_mmdt = obs.ETp_mmdt.loc[start:end]       # mmdt = accumulated depth per timestep
     obs_P_mmdt   = obs.P_mmdt.loc[start:end]   
     obs_Q_m3s    = obs.Q_m3s.loc[start:end]      
+    
+    # Check quality of time-series
+    obs._quality_check_timeseries(obs_ETp_mmdt, start, end, obs.ETp_freq, "ETp")
+    obs._quality_check_timeseries(obs_P_mmdt, start, end, obs.P_freq, "Rainfall")
+    obs._quality_check_timeseries(obs_Q_m3s, start, end, obs.Q_freq, "Total Flow")
     
     obs_Q_mmdt = _convert_rate_to_depth(obs_Q_m3s, obs.catchment_size, obs.Q_freq)
     
@@ -568,13 +649,18 @@ def evaluate_et(catchment, period_id, start, end, directories):
     sim_rows = config_sim[
         (config_sim["catchment"] == catchment) &     # passed in from main.py's command line argument
         (config_sim["period_id"] == period_id) &     # idem
-        (config_sim["stage"] == "submodel") &
         (config_sim["calibration_target"] == "ET")
     ]
     
+    sim_number = 0
     for _, sim_row in sim_rows.iterrows():
+        sim_number += 1 
         sim = Simulation(sim_row, directories.sim)
         sim_id = sim.parameters["ET_params1"]        # ET exponent is used as scenario identifier 
+        
+        # Print message that the simulation being processed
+        _print_execution_progress(command_label = "Calibration Target", option = "ET", 
+                                  sim_number = sim_number, total_sim = len(sim_rows), sim_id = sim_id)
         
         ## 2.1 ETa
         sim_smd = sim.smd.loc[start:end]
@@ -619,6 +705,10 @@ def evaluate_et(catchment, period_id, start, end, directories):
                                 start = start, end = end, 
                                 period_id = period_id, 
                                 output_path = directories.ET)
+    
+    # Print message
+    print(f"Calibration Target: ET completed ({len(sim_rows)} simulations).")
+    print(f"Plots saved to: {directories.ET}")
 
 def evaluate_soil(catchment, period_id, start, end, directories):
     """Evaluate submodel(s) related to soil moisture dynamics using event-based soil water depth as a calibration target.
@@ -650,7 +740,11 @@ def evaluate_soil(catchment, period_id, start, end, directories):
     
     obs_P_mmdt = obs.P_mmdt.loc[start:end]    
     obs_Q_m3s  = obs.Q_m3s.loc[start:end]     
-  
+    
+    # Check quality of time-series
+    obs._quality_check_timeseries(obs_P_mmdt, start, end, obs.P_freq, "Rainfall")
+    obs._quality_check_timeseries(obs_Q_m3s, start, end, obs.Q_freq, "Total Flow")
+    
     obs_Q_mmdt = _convert_rate_to_depth(obs_Q_m3s, obs.catchment_size, obs.Q_freq) 
     
     obs_P_mmhr       = obs_P_mmdt.resample("H").sum()          
@@ -661,14 +755,33 @@ def evaluate_soil(catchment, period_id, start, end, directories):
     sim_rows = config_sim[
         (config_sim["catchment"] == catchment) &
         (config_sim["period_id"] == period_id) &
-        (config_sim["stage"] == "submodel") &
         (config_sim["calibration_target"] == "soil") 
     ]
     
+    # Check if there are 3 slow flow events for one specific catchment and period analysed.
+    slow_flow_periods = flow_periods[
+        (flow_periods["catchment"] == catchment) &
+        (flow_periods["period_id"] == period_id) &
+        (flow_periods["flow_period_type"] == "slow")
+    ]
+    
+    n_slow_flow_periods = len(slow_flow_periods)
+    
+    if n_slow_flow_periods < 3:
+        raise ValueError(
+            "To calibrate model against soil water depth, at least 3 slow-flow periods is required.\n"
+            f"Found {n_slow_flow_periods} for catchment {catchment} for {period_id} period")
+    
+    sim_number = 0
     for _, sim_row in sim_rows.iterrows():
+        sim_number += 1 
         sim = Simulation(sim_row, directories.sim)
-        
         sim_id = sim.id
+        
+        # Print message that the simulation being processed
+        _print_execution_progress(command_label = "Calibration Target", option = "soil", 
+                                  sim_number = sim_number, total_sim = len(sim_rows), sim_id = sim_id)
+        
         sim_λSWd = sim.λSWd
         sim_ETa_mmhr = sim.ETa_mmday.loc[start:end] / 24
         sim_smd = sim.smd.loc[start:end]
@@ -705,10 +818,10 @@ def evaluate_soil(catchment, period_id, start, end, directories):
         SWd_minima["BC_sim"] = BC_sim
         
         ## 2.5 RMSE
-        SWd_maxima["BC_residuals"] = SWd_maxima["BC_obs"] - SWd_maxima["BC_sim"]
+        SWd_maxima["BC_residuals"] = SWd_maxima["BC_sim"] - SWd_maxima["BC_obs"]
         RMSE_BC_maxima = np.sqrt( np.mean(SWd_maxima["BC_residuals"] ** 2) )
         
-        SWd_minima["BC_residuals"] = SWd_minima["BC_obs"] - SWd_minima["BC_sim"]
+        SWd_minima["BC_residuals"] = SWd_minima["BC_sim"] - SWd_minima["BC_obs"]
         RMSE_BC_minima = np.sqrt( np.mean(SWd_minima["BC_residuals"] ** 2) )
         
         ## 3 Plot
@@ -725,7 +838,11 @@ def evaluate_soil(catchment, period_id, start, end, directories):
                          λ = sim_λSWd, RMSE_maxima = RMSE_BC_maxima, RMSE_minima = RMSE_BC_minima, 
                          catchment = catchment, sim_id = sim_id, period_id = period_id, 
                          timeseries_output_path = directories.soil['timeseries'], boxcox_output_path = directories.soil['boxcox'])
-
+        
+    # Print message
+    print(f"Calibration Target: soil completed ({len(sim_rows)} simulations).")
+    print(f"Plots saved to: {os.path.dirname(directories.soil['evaluation'])}")
+        
 def evaluate_runoff(catchment, period_id, start, end, directories):
     """Evaluate runoff-related submodel(s) using event-based accumulated runoff depth as a calibration target.
     When standard/demand-based method is selected, the accumulated runoff depth is a calibration target for soil storage and recharge submodels.
@@ -756,19 +873,28 @@ def evaluate_runoff(catchment, period_id, start, end, directories):
     obs     = Observation(obs_row, directories.obs)
 
     obs_QF_m3s  = obs.QF_m3s.loc[start:end]
+    
+    # Check quality of time-series
+    obs._quality_check_timeseries(obs_QF_m3s, start, end, obs.QF_freq, "Quick Flow")
+    
     obs_QF_mmdt = _convert_rate_to_depth(obs_QF_m3s, obs.catchment_size, obs.QF_freq)    
     
     ## 2 Simulation
     sim_rows = config_sim[
         (config_sim["catchment"] == catchment) &
         (config_sim["period_id"] == period_id) &
-        (config_sim["stage"] == "submodel") &
         (config_sim["calibration_target"] == "runoff") 
     ]    
     
+    sim_number = 0
     for _, sim_row in sim_rows.iterrows():
+        sim_number += 1 
         sim = Simulation(sim_row, directories.sim)
         sim_id = sim.id
+        
+        # Print message that the simulation being processed
+        _print_execution_progress(command_label = "Calibration Target", option = "runoff", 
+                                  sim_number = sim_number, total_sim = len(sim_rows), sim_id = sim_id)
         
         sim_λQF = sim.λQF
         sim_QF_m3s = sim.QF_m3s.loc[start:end]
@@ -785,13 +911,13 @@ def evaluate_runoff(catchment, period_id, start, end, directories):
         QF_depth_cumulative["BC_sim"] = BC_sim
         
         ## 2.3 RMSE
-        QF_depth_cumulative["BC_residuals"] = QF_depth_cumulative["BC_obs"] - QF_depth_cumulative["BC_sim"]
+        QF_depth_cumulative["BC_residuals"] = QF_depth_cumulative["BC_sim"] - QF_depth_cumulative["BC_obs"]
         RMSE_BC = np.sqrt( np.mean(QF_depth_cumulative["BC_residuals"] ** 2) )
                         
         ## 3 Plot        
         plot_runoff_evaluation(obs_QF_mmdt = obs_QF_mmdt, sim_QF_mmdt = sim_QF_mmdt, 
                                flow_periods = quickflow_periods, 
-                               QFdepth_cumulative = QF_depth_cumulative, 
+                               QF_depth_cumulative = QF_depth_cumulative, 
                                λ = sim_λQF, RMSE = RMSE_BC, 
                                catchment = catchment, sim_id = sim_id, period_id = period_id, 
                                output_path = directories.runoff['evaluation'])
@@ -803,6 +929,10 @@ def evaluate_runoff(catchment, period_id, start, end, directories):
                            catchment = catchment, sim_id = sim_id, period_id = period_id, 
                            timeseries_output_path = directories.runoff['timeseries'], boxcox_output_path = directories.runoff['boxcox'])
 
+    # Print message
+    print(f"Calibration Target: runoff completed ({len(sim_rows)} simulations).")
+    print(f"Plots saved to: {os.path.dirname(directories.runoff['evaluation'])}")
+        
 def evaluate_statistics(catchment, period_id, start, end, flow_type, directories):
     """Evaluate overall model performance using provided statistics, 
     alongside the shape of flow hydrograph and the hydrograph's peak provided in the time-series plot as evaluation target.
@@ -830,24 +960,38 @@ def evaluate_statistics(catchment, period_id, start, end, flow_type, directories
     ## 1 Observation
     obs_row   = config_obs[config_obs["catchment"] == catchment].iloc[0]
     obs       = Observation(obs_row, directories.obs)
-    obs_F_m3s = _get_flow(obs, flow_type, start, end)
+    
+    obs_F_m3s = _get_flow(obs, flow_type, start, end) # obs_F_m3s is a flow dependant on flow_type, obs_Q_m3s is total flow
+
+    # Check quality of time-series
+    if flow_type == "QF":
+        obs._quality_check_timeseries(obs_F_m3s, start, end, obs.QF_freq, "Quick Flow")
+    elif flow_type == "BF":
+        obs._quality_check_timeseries(obs_F_m3s, start, end, obs.BF_freq, "Baseflow")
+    elif flow_type == "TF":
+        obs._quality_check_timeseries(obs_F_m3s, start, end, obs.QF_freq, "Total Flow") # TF is constructed with QF + BF, so use QF frequency as reference for TF's
     
     ## 2 Simulation
     sim_rows = config_sim[
         (config_sim["catchment"] == catchment) &            
         (config_sim["period_id"] == period_id) &            
-        (config_sim["stage"] == "overall") &
         (config_sim["evaluation_method"] == "timeseries") & 
         (config_sim["flow_type"] == flow_type) 
     ]                                       
     
+    sim_number = 0
     for _, sim_row in sim_rows.iterrows():
+        sim_number += 1
         sim = Simulation(sim_row, directories.sim)
         sim_id = sim.id
+        
+        _print_execution_progress(command_label = "Evaluation Method", option = "statistics", 
+                                  sim_number = sim_number, total_sim = len(sim_rows), sim_id = sim_id)
+        
         sim_F_m3s = _get_flow(sim, flow_type, start, end)
         
         ## 2.1 Statistics
-        F_residuals = obs_F_m3s - sim_F_m3s
+        F_residuals = sim_F_m3s - obs_F_m3s
         F_deviation = obs_F_m3s - np.mean(obs_F_m3s)
         
         ## 2.2 Performance Indices
@@ -863,6 +1007,10 @@ def evaluate_statistics(catchment, period_id, start, end, flow_type, directories
                              output_path = directories.statistics[flow_type], 
                              show_statistics = True,
                              ME = ME, RMSE = RMSE, NSE = NSE)
+    
+    # Print message
+    print(f"Evaluation method: statistics completed ({len(sim_rows)} simulations).")
+    print(f"Plots saved to: {os.path.dirname(directories.statistics['flow_type'])}")
 
 def evaluate_waterbalance(catchment, period_id, start, end, flow_type, directories):
     """Evaluate overall model performance using water balance deficit and the cumulative plot as evaluation target.
@@ -892,12 +1040,18 @@ def evaluate_waterbalance(catchment, period_id, start, end, flow_type, directori
     
     obs_F_m3s = _get_flow(obs, flow_type, start, end)
     
+    # Check quality of time-series
     if flow_type == "QF":
-        obs_F_freq = obs.QF_freq
+        obs_F_freq = obs.QF_freq 
+        variable = "Quick Flow"
     elif flow_type == "BF":
         obs_F_freq = obs.BF_freq
+        variable = "Baseflow"
     elif flow_type == "TF":
-        obs_F_freq = obs.QF_freq
+        obs_F_freq = obs.QF_freq # TF is constructed with QF + BF, so use QF frequency as reference for TF's
+        variable = "Total Flow"    
+    obs._quality_check_timeseries(obs_F_m3s, start, end, obs_F_freq, variable)
+    
     obs_F_mmdt = _convert_rate_to_depth(obs_F_m3s, obs.catchment_size, obs_F_freq)
     obs_F_wb = obs_F_mmdt.cumsum()
     
@@ -906,15 +1060,19 @@ def evaluate_waterbalance(catchment, period_id, start, end, flow_type, directori
     
     sim_rows = config_sim[
         (config_sim["catchment"] == catchment) &            
-        (config_sim["period_id"] == period_id) &            
-        (config_sim["stage"] == "overall") &
+        (config_sim["period_id"] == period_id) &
         (config_sim["evaluation_method"] == "waterbalance") & 
         (config_sim["flow_type"] == flow_type) 
     ]                                       
     
+    sim_number = 0
     for _, sim_row in sim_rows.iterrows():
+        sim_number += 1
         sim = Simulation(sim_row, directories.sim)
         sim_id = sim.id
+        
+        _print_execution_progress(command_label = "Evaluation Method", option = "water balance", 
+                                  sim_number = sim_number, total_sim = len(sim_rows), sim_id = sim_id)
         
         sim_F_m3s = _get_flow(sim, flow_type, start, end)
         sim_F_freq = pd.infer_freq(sim_F_m3s.index)
@@ -933,3 +1091,7 @@ def evaluate_waterbalance(catchment, period_id, start, end, flow_type, directori
                            flow_type = flow_type, obs_label = _get_obs_label(flow_type), 
                            catchment = catchment, sim_id = sim_id, period_id = period_id, 
                            output_path = directories.waterbalance[flow_type])
+    
+    # Print message
+    print(f"Evaluation method: water balance completed ({len(sim_rows)} simulations).")
+    print(f"Plots saved to: {os.path.dirname(directories.waterbalance['flow_type'])}")

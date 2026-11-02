@@ -47,17 +47,16 @@ class Simulation:
         # Fields below are not stored as variable here, they only to filter rows in calibration.py
         row_dict.pop('catchment')                                                      # 2
         row_dict.pop('period_id')                                                      # 3
-        row_dict.pop('stage')                                                          # 4
-        row_dict.pop('evaluation_method')                                              # 6
-        row_dict.pop('flow_type')                                                      # 7
+        row_dict.pop('evaluation_method')                                              # 5
+        row_dict.pop('flow_type')                                                      # 6
         
         # Field below are stored as variables, used here and in calibration.py
         self.id = row_dict.pop('simulation_id')                                        # 1
-        self.calibration_target = row_dict.pop('calibration_target')                   # 5
+        self.calibration_target = row_dict.pop('calibration_target')                   # 4
         
         # Load filename to be joined as path
-        ETa_soilmoisture_filename = row_dict.pop('ETa_soilmoisture_filename')          # 8
-        baseflow_quickflow_filename = row_dict.pop('baseflow_quickflow_filename')      # 9
+        ETa_soilmoisture_filename = row_dict.pop('ETa_soilmoisture_filename')          # 7
+        baseflow_quickflow_filename = row_dict.pop('baseflow_quickflow_filename')      # 8
         
         if self.calibration_target in ["ET", "soil"]:
             self.ETa_mmday = self._load_timeseries(sim_path, ETa_soilmoisture_filename, ETa_key)
@@ -69,11 +68,10 @@ class Simulation:
         
         self.λSWd = row_dict.pop("λSWd")                                               # 10
         self.λQF = row_dict.pop("λQF")                                                 # 11
-        self.λBF = row_dict.pop("λBF")                                                 # 12
         
         self.parameters = row_dict                                                     # "parameters" Sheet
         
-    def _load_timeseries(self, folder, filename, columnkey):
+    def _load_timeseries(self, folder, filename, column_key):
         """Extract the time-series from InfoWorks output files and prepare them for use in calibration.
         
         Parameters
@@ -82,7 +80,7 @@ class Simulation:
             Path of the folder that stores the InfoWorks output files.
         filename : str
             The filename of the InfoWorks output file.
-        columnkey : str
+        column_key : str
             The column header of the time-series.
 
         Raises
@@ -106,14 +104,29 @@ class Simulation:
         
         df = df.set_index("Timestamp")                             
         
+        if "Date" not in df.columns:
+            raise ValueError(
+                f"Column 'Date' not found in output file '{filename}'. \n"
+                f"Rename the corresponding column header to 'Date'"
+            )
+        
+        if "Time" not in df.columns:
+            raise ValueError(
+                f"Column 'Time' not found in output file '{filename}'. \n"
+                f"Rename the corresponding column header to 'Time'"
+            )
+        
         # Find the InfoWorks output column containing the specified key.
         column_name = [column                   
                        for column in df.columns 
-                       if columnkey in column]  
-        
+                       if column_key in column]  
+
         # Raise an error if the expected output column is not found.
         if not column_name:
-            raise ValueError("no column header found")
+            raise ValueError(
+                f"Column: '{column_key}' is not found in output file '{filename}'. \n"    
+                f"Rename the corresponding column header to {column_key}"
+            )
         
         column = column_name[0]
         return df[column] 
