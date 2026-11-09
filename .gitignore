@@ -1,22 +1,14 @@
 # Main folders, sub-folders, and files not to upload to github (ignored)
 
 # Main folders
-/oldcode/
-/Other sample data/
-/waterinfo/
+/local_oldcode/
+/local_datasets/
+/local_waterinfo/
 
-# Sub-folders
-# Results from old code
-/evaluation/plot/*
-!/evaluation/plot/.gitkeep
-# Observation data
-/observation/observations/*
-!/observation/observations/.gitkeep
-# Simulation output
-/simulation/simulationoutput/*
-!/simulation/simulationoutput/.gitkeep
-# configure simulation thesis
-/simulation/simulationmasters (backup).xlsx
+# Files inside subfolders
+/simulation/config_simulations_thesis.xlsx
+/observation/config_observations_thesis.xlsx
+/evaluation/config_periods_thesis.xlsx
 
 # Python cache
 __pycache__/

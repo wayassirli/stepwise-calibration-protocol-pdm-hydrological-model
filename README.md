@@ -73,8 +73,8 @@ The calibration of simulation output is configured through the three Excels in w
 
 **Cell colour convention**<br>
 🟩 **Green cells** Input required for the code to run<br>
-🟦 **Blue cells** Information Only (code would run with or without a value, but information is useful for context)<br>
-🟥 **Red cells** Customization for Box-Cox plotting<br>
+🟨 **Yellow cells** Input conditionally required, depending on the selected command and option<br>
+🟦 **Blue cells** Input provided only for information, code would run with or without a value but information is useful for context<br>
 ⬜ **Grey cells** Automatically filled, do not modify. If your simulation exceeds the pre-filled 5000 rows, drag the formula down as required. 
 
 <details>
@@ -148,13 +148,13 @@ Each row corresponds to the information of one catchment including its size and 
 | `simulation_id` | 🟩 | String | Write the unique identifier for your simulation, as a combination of your catchment, the period you simulated it, and your parameter set |
 | `catchment` | 🟩 | String | Write the name of the catchment that the simulation output belongs to. The name must match the `catchment` value in the other configuration files. |
 | `period_id` | 🟩 | String | Write the `period_id` in which the simulation is to be evaluated. The `period_id` value must be consistent across configuration files. It is used to select the part of the simulation between the corresponding `start_date` and `end_date` for evaluation.|
-| `calibration_target` | 🟩 | String | Specify calibration target to evaluate the performance of the simulation (parameter set). Specified this as the options when the `command` on Anaconda Prompt is set to `calibrate_to`. The available calibration targets are `recession`, `ET`, `soil`, `runoff`. The same simulation can be calibrated aganist different targets, in which case, you have to wrote it twice in different rows. |
-| `evaluation_method` | 🟩 | String | Specify the evaluation method used to assess the overall model performance. This field applies only when `stage` is set to `overall`. The available evaluation methods are `statistics` and `waterbalance`. |
-| `flow_type` | 🟩 | String | Specify the flowtype to be calibrated/evaluated (`QF`, `BF`, or `TF`). |
-| `ETa_soilmoisture_filename` | 🟩 | String | Write the filename of the ETa and soil moisture time-series associated with your simulation_id, including the InfoWorks output file extension (e.g. `ETa_soilmoisture_sim1.csv`). Enter when calibrating ETa or soil  storage submodel, leave empty otherwise. |
-| `baseflow_quickflow_filename` | 🟩 | String | Write the filename of the quick flow and baseflow time-series associated with the simulation_id, including the InfoWorks output file extension (e.g. `QF_BF_sim1.csv`). Enter the filename when calibrating runoff related storage submodels, leave empty otherwise. |
-| `λSWd` | 🟥 | Float | Enter the Box-Cox parameter λ value (0-1) when calibrating soil storage submodel |
-| `λQF` | 🟥 | Float | Enter the Box-Cox parameter λ value (0-1) when calibrating runoff submodel |
+| `calibration_target` | 🟨 | String | Specify calibration target to evaluate the performance of the simulation (parameter set). Specified this as the options when the `command` on Anaconda Prompt is set to `calibrate_to`. The available calibration targets are `recession`, `ET`, `soil`, `runoff`. The same simulation can be calibrated aganist different targets, in which case, you have to wrote it twice in different rows. |
+| `evaluation_method` | 🟨 | String | Specify the evaluation method used to assess the overall model performance. This field applies only when `stage` is set to `overall`. The available evaluation methods are `statistics` and `waterbalance`. |
+| `flow_type` | 🟨 | String | Specify the flowtype to be calibrated/evaluated (`QF`, `BF`, or `TF`). |
+| `ETa_soilmoisture_filename` | 🟨 | String | Write the filename of the ETa and soil moisture time-series associated with your simulation_id, including the InfoWorks output file extension (e.g. `ETa_soilmoisture_sim1.csv`). Enter when calibrating ETa or soil  storage submodel, leave empty otherwise. |
+| `baseflow_quickflow_filename` | 🟨 | String | Write the filename of the quick flow and baseflow time-series associated with the simulation_id, including the InfoWorks output file extension (e.g. `QF_BF_sim1.csv`). Enter the filename when calibrating runoff related storage submodels, leave empty otherwise. |
+| `λSWd` | 🟨 | Float | Enter the Box-Cox parameter λ value (0-1) when calibrating soil storage submodel |
+| `λQF` | 🟨 | Float | Enter the Box-Cox parameter λ value (0-1) when calibrating runoff submodel |
 
 **Excel: 'simulation_config.xlsx'**  
 **Sheet 2: parameters**  
@@ -167,11 +167,11 @@ Each row represents one simulation scenario, where you simulated a parameter set
 | `calibration_target` | ⬜ | String | Mirrors `calibration_target` value on simulations sheet |
 | `evaluation_method` | ⬜ | String | Mirrors `evaluation_method` value on simulations sheet |
 | `flowtype` | ⬜ | String |  |
-| `ET_params1` | 🟩 | Float | `ET_params1` is the evapotranspiration exponent parameter value you choose for this simulation scenario. You will calibrate by simulating multiple exponent values (e.g. 1.5, 2, 2.5, 3). `ET_params1` value will be used as legends in your ET calibration plot. |
-| `soil_function` | 🟩 | String | Specify which distribution you choose (Pareto, triangular, or rectangular). This will be used to select the formula to calculate `Smax`. |
-| `soil_params1` | 🟩 | String | Specify the `cmin` parameter value you choose for this simulation scenario. |
-| `soil_params2` | 🟩 | String | Specify the `cmax` parameter value you choose for this simulation scenario. |
-| `soil_params3` | 🟩 | String | Specify the `b` parameter value you choose for this simulation scenario. |
+| `ET_params1` | 🟨 | Float | `ET_params1` is the evapotranspiration exponent parameter value you choose for this simulation scenario. You will calibrate by simulating multiple exponent values (e.g. 1.5, 2, 2.5, 3). `ET_params1` value will be used as legends in your ET calibration plot. |
+| `soil_function` | 🟨 | String | Specify which distribution you choose (Pareto, triangular, or rectangular). This will be used to select the formula to calculate `Smax`. |
+| `soil_params1` | 🟨 | String | Specify the `cmin` parameter value you choose for this simulation scenario. |
+| `soil_params2` | 🟨 | String | Specify the `cmax` parameter value you choose for this simulation scenario. |
+| `soil_params3` | 🟨 | String | Specify the `b` parameter value you choose for this simulation scenario. |
 | `recharge_function` | 🟦 | String | Specify which recharge function you choose (`Standard`, `Demand-based`, or `Splitting`) |
 | `recharge_params1` | 🟦 | Float | Specify the first parameter value you choose for this scenario (for `Standard` function, specify `kg`; for `Demand-based` and `Splitting` Function, specify `α`) |
 | `recharge_params2` | 🟦 | Float | Specify the second parameter value you choose for this scenario (for `Standard` function, specify `bg`; for `Demand-based`, specify `β`) |

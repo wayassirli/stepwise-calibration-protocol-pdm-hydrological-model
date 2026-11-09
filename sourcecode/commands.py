@@ -17,7 +17,7 @@ from config import config_sim
 from config import config_periods
 from config import flow_periods
 
-from plot import plot_rainfall_flow, plot_flows, plot_et
+from plot import plot_rainfall_flow, plot_flows
 from plot import plot_et_actual_vs_potential, plot_et_ratio, plot_soil_water_depth_multi
 from plot import plot_soil_evaluation, plot_soil_report
 from plot import plot_runoff_evaluation, plot_runoff_report
@@ -473,7 +473,7 @@ def _print_execution_progress(command_label, option, sim_number, total_sim, sim_
         if flow_type is not None:
             message = f"{command_label}: {option} | Flow type: {flow_type}"
             
-    print(message)
+        print(message)
     
     # 2 Print message
     print(f"Processing simulation {sim_number}/{total_sim}")
@@ -975,7 +975,7 @@ def evaluate_statistics(catchment, period_id, start, end, flow_type, directories
     sim_rows = config_sim[
         (config_sim["catchment"] == catchment) &            
         (config_sim["period_id"] == period_id) &            
-        (config_sim["evaluation_method"] == "timeseries") & 
+        (config_sim["evaluation_method"] == "statistics") & 
         (config_sim["flow_type"] == flow_type) 
     ]                                       
     
@@ -1010,7 +1010,7 @@ def evaluate_statistics(catchment, period_id, start, end, flow_type, directories
     
     # Print message
     print(f"Evaluation method: statistics completed ({len(sim_rows)} simulations).")
-    print(f"Plots saved to: {os.path.dirname(directories.statistics['flow_type'])}")
+    print(f"Plots saved to: {os.path.dirname(directories.statistics[flow_type])}")
 
 def evaluate_waterbalance(catchment, period_id, start, end, flow_type, directories):
     """Evaluate overall model performance using water balance deficit and the cumulative plot as evaluation target.
@@ -1094,4 +1094,4 @@ def evaluate_waterbalance(catchment, period_id, start, end, flow_type, directori
     
     # Print message
     print(f"Evaluation method: water balance completed ({len(sim_rows)} simulations).")
-    print(f"Plots saved to: {os.path.dirname(directories.waterbalance['flow_type'])}")
+    print(f"Plots saved to: {os.path.dirname(directories.waterbalance[flow_type])}")

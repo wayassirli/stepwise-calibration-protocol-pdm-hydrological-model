@@ -28,7 +28,8 @@ from directory import project_path
 from directory import generate_observation_plot_folder, generate_evaluation_plot_folder
 from directory import Directory
 
-from config import check_command, check_plot_observatio_command
+from config import check_configuration
+from config import check_command, check_plot_observation_command
 from config import check_catchment_period_id_match, check_command_config_matches
 
 from commands import _get_simulation_period
@@ -38,7 +39,12 @@ from commands import evaluate_statistics, evaluate_waterbalance
 
 
 if __name__ == "__main__":
-
+    
+    if len(sys.argv) == 2:
+        if sys.argv[1] == "check_configuration":
+            check_configuration()
+            print("Configurations check finished")
+    
     if len(sys.argv) == 5: # flow_type is not specified
         
         catchment = sys.argv[1]          
@@ -47,13 +53,29 @@ if __name__ == "__main__":
         option = sys.argv[4]
         flow_type = None
 
+        # Check configuration files generally in case check_configuration is not manually executed
+        check_configuration()
+        
+        # Check the requested command-line execution against configuration files        
+        check_catchment_period_id_match(catchment, period_id)
+        check_command(catchment, period_id, command)
+        check_plot_observation_command(catchment, period_id, command, option)
+        
+        if command == "evaluate":
+            for flow_type in ["QF", "BF", "TF"]:    
+                check_command_config_matches(command, option, catchment, period_id, flow_type)
+        
+        elif command == "calibrate_to" and option == "recession":
+            for flow_type in ["QF", "BF"]:
+                check_command_config_matches(command, option, catchment, period_id, flow_type)
+                
+        elif command == "calibrate_to":
+            check_command_config_matches(command, option, catchment, period_id, flow_type)
+        
+        # Retrieve start and end date of simulation period
         start, end = _get_simulation_period(catchment, period_id)
         
-        check_command(catchment, period_id, command)
-        check_command_config_matches(command, option, catchment, period_id)
-        check_catchment_period_id_match(catchment, period_id)
-        check_command_config_matches(command, option, catchment, period_id)
-        
+        # Create directories
         catchment_observation_plot_path = generate_observation_plot_folder(catchment)
         catchment_evaluation_plot_path = generate_evaluation_plot_folder(catchment)
         directories = Directory(project_path, catchment_observation_plot_path, catchment_evaluation_plot_path)
@@ -98,13 +120,19 @@ if __name__ == "__main__":
         option = sys.argv[4]
         flow_type = sys.argv[5]
         
-        start, end = _get_simulation_period(catchment, period_id)
+        # Check configuration files generally in case check_configuration is not manually executed
+        check_configuration()
 
-        check_command(catchment, period_id, command)
-        check_command_config_matches(command, option, catchment, period_id)        
+        # Check the requested command-line execution against configuration files        
         check_catchment_period_id_match(catchment, period_id)
-        check_command_config_matches(command, option, catchment, period_id)
+        check_command(catchment, period_id, command)
+        check_plot_observation_command(catchment, period_id, command, option)
+        check_command_config_matches(command, option, catchment, period_id, flow_type)        
         
+        # Retrieve start and end date of simulation period
+        start, end = _get_simulation_period(catchment, period_id)
+        
+        # Create directories
         catchment_observation_plot_path = generate_observation_plot_folder(catchment)
         catchment_evaluation_plot_path = generate_evaluation_plot_folder(catchment)
         directories = Directory(project_path, catchment_observation_plot_path, catchment_evaluation_plot_path)
@@ -126,7 +154,8 @@ if __name__ == "__main__":
     else:
         print("Invalid number of argument.\n"
               "Usage:\n"
-              "   python main.py catchment period_id stage calibration_target/evaluation_method\n"
-              "   python main.py catchment period_id stage calibration_target/evaluation_method flow_type"
+              "   python main.py check_configuration\n"
+              "   python main.py catchment period_id command option\n"
+              "   python main.py catchment period_id command option flow_type"
         )
         sys.exit(1)
