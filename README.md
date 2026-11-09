@@ -278,13 +278,13 @@ Event-based cumulative runoff volume
 
 Baseflow
 <p align="left">
-    <img src="figures/Baseflow_timeseries_BlueCreek_scenario4_2019-2021.png" width="48%">
-    <img src="figures/Baseflow_timeseries_BlueCreek_scenario7_2019-2021.png" width="48%">
+    <img src="figures/Baseflow_timeseries_BlueCreek_scenario4_2019_2021.png" width="48%">
+    <img src="figures/Baseflow_timeseries_BlueCreek_scenario7_2019_2021.png" width="48%">
 </p>
 
 <p align="left">
-    <img src="figures/Baseflow_timeseries_BlueCreek_scenario8_2019-2021.png" width="48%">
-    <img src="figures/Baseflow_timeseries_BlueCreek_scenario9_2019-2021.png" width="48%">
+    <img src="figures/Baseflow_timeseries_BlueCreek_scenario8_2019_2021.png" width="48%">
+    <img src="figures/Baseflow_timeseries_BlueCreek_scenario9_2019_2021.png" width="48%">
 </p>
 
 
@@ -300,18 +300,23 @@ Baseflow
 #### 6.2.1 Statistics
 Baseflow
 <p align="left">
-    <img src="figures/Baseflow_timeseries_BlueCreek_validation1_2023-2025.png" width="48%">
-    <img src="figures/Baseflow_timeseries_BlueCreek_validation9_2023-2025.png" width="48%">
+    <img src="figures/Baseflow_timeseries_BlueCreek_validation1_2023_2025.png" width="48%">
+    <img src="figures/Baseflow_timeseries_BlueCreek_validation9_2023_2025.png" width="48%">
 </p>
 
 Total Flow
 <p align="left">
-    <img src="figures/Total Flow_timeseries_BlueCreek_validation1_2023-2025.png" width="48%">
-    <img src="figures/Total Flow_timeseries_BlueCreek_validation9_2023-2025.png" width="48%">
+    <img src="figures/Total Flow_timeseries_BlueCreek_validation1_2023_2025.png" width="48%">
+    <img src="figures/Total Flow_timeseries_BlueCreek_validation9_2023_2025.png" width="48%">
 </p>
 
 #### 6.2.1 Water Balance
 
+Baseflow
+<p align="left">
+    <img src="figures/BF_Water_Balance_BlueCreek_2023_2025.png" width="48%">
+    <img src="figures/TF_Water_Balance_BlueCreek_2023_2025.png" width="48%">
+</p>
 
 </details>
 
