@@ -226,6 +226,7 @@ def check_command(catchment, period_id, command):
 
 def check_command_config_matches(command, option, catchment, period_id, flow_type = None):
     """If the command exist, check if the option requested through command-line arguments is configured
+    avoid empty sim_rows
     """
     
     errors = []
@@ -241,7 +242,12 @@ def check_command_config_matches(command, option, catchment, period_id, flow_typ
         (config_sim["period_id"] == period_id)
     ]
     
-    if flow_type is not None:
+    if flow_type is None:
+        config_sim_catchment_period_id = config_sim_catchment_period_id[
+            (config_sim_catchment_period_id["flow_type"].isna())
+        ]
+    
+    else:
         config_sim_catchment_period_id = config_sim_catchment_period_id[
             (config_sim_catchment_period_id["flow_type"] == flow_type)
         ] 

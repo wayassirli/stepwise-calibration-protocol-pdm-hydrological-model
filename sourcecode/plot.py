@@ -1024,7 +1024,7 @@ def plot_flow_waterbalance(obs_F_wb, sim_F_wb_dict, wb_deficit,
         "TF": {"title": "Total Flow", "y_label": "Cumulatie Flow Volume [m³]"}
     }    
     title = f"{flow_label[flow_type]['title']} Timeseries\n{catchment} {sim_id} {period_id}"
-    y_label = flow_label[flow_type]['ylabel']    
+    y_label = flow_label[flow_type]['y_label']    
 
     ## 3 Format plot
     plt.xlabel('Date', fontsize=16)

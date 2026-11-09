@@ -520,7 +520,7 @@ def plot_observed_flows(catchment, period_id, start, end, directories, flow_type
     
     print(f"Observation plot saved to: {directories.observation_plots}")
         
-def evaluate_recession(catchment, period_id, start, end, flow_type, directories):
+def evaluate_recession(catchment, period_id, start, end, directories, flow_type = None):
     """Evaluate routing submodels' performance using flow recession characteristics in flow time-series as a calibration target.
     
     Parameters
@@ -544,6 +544,14 @@ def evaluate_recession(catchment, period_id, start, end, flow_type, directories)
     None
         Generate recession plots for routing submodel evaluation.
     """
+    
+    flow_types = ["QF", "BF"]
+    
+    if flow_type is None:
+        for selected_flow_type in flow_types:
+            evaluate_recession(catchment, period_id, start, end, directories, selected_flow_type)
+        return
+    
     ## 1 Observation
     obs_row = config_obs[config_obs["catchment"] == catchment].iloc[0]
     obs    = Observation(obs_row, directories.obs)
@@ -560,8 +568,10 @@ def evaluate_recession(catchment, period_id, start, end, flow_type, directories)
         (config_sim["catchment"] == catchment) &            # passed in from main.py's command line argument
         (config_sim["period_id"] == period_id) &            # idem           
         (config_sim["calibration_target"] == "recession") & 
-        (config_sim["flow_type"] == flow_type)              # When flow_type is not specified as argument in the command-line->
-    ]                                                       # -> functions are looped for all flow_types (hard-coded) in main.py 
+        (
+            config_sim["flow_type"].isna() | (config_sim["flow_type"] == flow_type)
+        )             
+    ]                                                        
     
     sim_number = 0
     for _, sim_row in sim_rows.iterrows():
@@ -572,7 +582,7 @@ def evaluate_recession(catchment, period_id, start, end, flow_type, directories)
         
         # Print message that the simulation being processed
         _print_execution_progress(command_label = "Calibration Target", option = "recession", 
-                                  sim_number = sim_number, total_sim = len(sim_rows), sim_id = sim_id)
+                                  sim_number = sim_number, total_sim = len(sim_rows), sim_id = sim_id, flow_type = flow_type)
         
         sim_F_m3s = _get_flow(sim, flow_type, start, end)
         
@@ -868,6 +878,7 @@ def evaluate_runoff(catchment, period_id, start, end, directories):
 
     """
     
+    
     ## 1 Observation
     obs_row = config_obs[config_obs["catchment"] == catchment].iloc[0]
     obs     = Observation(obs_row, directories.obs)
@@ -933,7 +944,7 @@ def evaluate_runoff(catchment, period_id, start, end, directories):
     print(f"Calibration Target: runoff completed ({len(sim_rows)} simulations).")
     print(f"Plots saved to: {os.path.dirname(directories.runoff['evaluation'])}")
         
-def evaluate_statistics(catchment, period_id, start, end, flow_type, directories):
+def evaluate_statistics(catchment, period_id, start, end, directories, flow_type = None):
     """Evaluate overall model performance using provided statistics, 
     alongside the shape of flow hydrograph and the hydrograph's peak provided in the time-series plot as evaluation target.
 
@@ -957,6 +968,14 @@ def evaluate_statistics(catchment, period_id, start, end, flow_type, directories
 
     """
     
+    flow_types = ["QF", "BF", "TF"]
+    # When no flow type specified in command-line execution
+    
+    if flow_type is None:
+        for selected_flow_type in flow_types:
+            evaluate_statistics(catchment, period_id, start, end, directories, selected_flow_type)
+        return
+    
     ## 1 Observation
     obs_row   = config_obs[config_obs["catchment"] == catchment].iloc[0]
     obs       = Observation(obs_row, directories.obs)
@@ -976,7 +995,9 @@ def evaluate_statistics(catchment, period_id, start, end, flow_type, directories
         (config_sim["catchment"] == catchment) &            
         (config_sim["period_id"] == period_id) &            
         (config_sim["evaluation_method"] == "statistics") & 
-        (config_sim["flow_type"] == flow_type) 
+        (
+            config_sim["flow_type"].isna() | (config_sim["flow_type"] == flow_type)
+        ) 
     ]                                       
     
     sim_number = 0
@@ -986,7 +1007,7 @@ def evaluate_statistics(catchment, period_id, start, end, flow_type, directories
         sim_id = sim.id
         
         _print_execution_progress(command_label = "Evaluation Method", option = "statistics", 
-                                  sim_number = sim_number, total_sim = len(sim_rows), sim_id = sim_id)
+                                  sim_number = sim_number, total_sim = len(sim_rows), sim_id = sim_id, flow_type = flow_type)
         
         sim_F_m3s = _get_flow(sim, flow_type, start, end)
         
@@ -1010,9 +1031,9 @@ def evaluate_statistics(catchment, period_id, start, end, flow_type, directories
     
     # Print message
     print(f"Evaluation method: statistics completed ({len(sim_rows)} simulations).")
-    print(f"Plots saved to: {os.path.dirname(directories.statistics[flow_type])}")
+    print(f"Plots saved to: {directories.statistics[flow_type]}")
 
-def evaluate_waterbalance(catchment, period_id, start, end, flow_type, directories):
+def evaluate_waterbalance(catchment, period_id, start, end, directories, flow_type = None):
     """Evaluate overall model performance using water balance deficit and the cumulative plot as evaluation target.
     
     Parameters
@@ -1034,6 +1055,15 @@ def evaluate_waterbalance(catchment, period_id, start, end, flow_type, directori
     None.
 
     """
+    
+    flow_types = ["QF", "BF", "TF"]
+    # When no flow type specified in command-line execution
+    
+    if flow_type is None:
+        for selected_flow_type in flow_types:
+            evaluate_waterbalance(catchment, period_id, start, end, directories, selected_flow_type)
+        return
+    
     ## 1 Observation
     obs_row = config_obs[config_obs["catchment"] == catchment].iloc[0]
     obs    = Observation(obs_row, directories.obs)
@@ -1062,9 +1092,11 @@ def evaluate_waterbalance(catchment, period_id, start, end, flow_type, directori
         (config_sim["catchment"] == catchment) &            
         (config_sim["period_id"] == period_id) &
         (config_sim["evaluation_method"] == "waterbalance") & 
-        (config_sim["flow_type"] == flow_type) 
+        (
+            config_sim["flow_type"].isna() | (config_sim["flow_type"] == flow_type)
+        ) 
     ]                                       
-    
+        
     sim_number = 0
     for _, sim_row in sim_rows.iterrows():
         sim_number += 1
@@ -1072,7 +1104,7 @@ def evaluate_waterbalance(catchment, period_id, start, end, flow_type, directori
         sim_id = sim.id
         
         _print_execution_progress(command_label = "Evaluation Method", option = "water balance", 
-                                  sim_number = sim_number, total_sim = len(sim_rows), sim_id = sim_id)
+                                  sim_number = sim_number, total_sim = len(sim_rows), sim_id = sim_id, flow_type = flow_type)
         
         sim_F_m3s = _get_flow(sim, flow_type, start, end)
         sim_F_freq = pd.infer_freq(sim_F_m3s.index)
@@ -1094,4 +1126,4 @@ def evaluate_waterbalance(catchment, period_id, start, end, flow_type, directori
     
     # Print message
     print(f"Evaluation method: water balance completed ({len(sim_rows)} simulations).")
-    print(f"Plots saved to: {os.path.dirname(directories.waterbalance[flow_type])}")
+    print(f"Plots saved to: {directories.waterbalance[flow_type]}")

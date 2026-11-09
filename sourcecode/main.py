@@ -40,12 +40,11 @@ from commands import evaluate_statistics, evaluate_waterbalance
 
 if __name__ == "__main__":
     
-    if len(sys.argv) == 2:
-        if sys.argv[1] == "check_configuration":
-            check_configuration()
-            print("Configurations check finished")
+    if len(sys.argv) == 2 and sys.argv[1] == "check_configuration":
+        check_configuration()
+        print("Configurations check finished")
     
-    if len(sys.argv) == 5: # flow_type is not specified
+    elif len(sys.argv) == 5: # flow_type is not specified
         
         catchment = sys.argv[1]          
         period_id = sys.argv[2]
@@ -60,17 +59,7 @@ if __name__ == "__main__":
         check_catchment_period_id_match(catchment, period_id)
         check_command(catchment, period_id, command)
         check_plot_observation_command(catchment, period_id, command, option)
-        
-        if command == "evaluate":
-            for flow_type in ["QF", "BF", "TF"]:    
-                check_command_config_matches(command, option, catchment, period_id, flow_type)
-        
-        elif command == "calibrate_to" and option == "recession":
-            for flow_type in ["QF", "BF"]:
-                check_command_config_matches(command, option, catchment, period_id, flow_type)
-                
-        elif command == "calibrate_to":
-            check_command_config_matches(command, option, catchment, period_id, flow_type)
+        check_command_config_matches(command, option, catchment, period_id)
         
         # Retrieve start and end date of simulation period
         start, end = _get_simulation_period(catchment, period_id)
@@ -103,14 +92,10 @@ if __name__ == "__main__":
         
         elif command == "evaluate": 
             if option == "statistics":
-                # when flow_type is not specified, evaluate all flow_type
-                for flow_type in ["QF", "BF", "TF"]:
-                    evaluate_statistics(catchment, period_id, start, end, flow_type, directories)
+                evaluate_statistics(catchment, period_id, start, end, directories)
             
             elif option == "waterbalance":
-                # when flow_type is not specified, evaluate all flow_type
-                for flow_type in ["QF", "BF", "TF"]:
-                    evaluate_waterbalance(catchment, period_id, start, end, flow_type, directories)
+                evaluate_waterbalance(catchment, period_id, start, end, directories)
         
     elif len(sys.argv) == 6: # flow_type is specified
         
@@ -141,15 +126,15 @@ if __name__ == "__main__":
             if option == "flows":
                 plot_observed_flows(catchment, period_id, start, end, directories, flow_type = flow_type)
         
-        elif command == "calibration_target":
+        elif command == "calibrate_to":
             if option == "recession":
-                evaluate_recession(catchment, period_id, start, end, flow_type, directories)
+                evaluate_recession(catchment, period_id, start, end, flow_type, directories, flow_type = flow_type)
         
-        elif command == "evalution_method":
+        elif command == "evaluate":
             if option == "statistics":
-                evaluate_statistics(catchment, period_id, start, end, flow_type, directories)
+                evaluate_statistics(catchment, period_id, start, end, directories, flow_type = flow_type)
             elif option == "waterbalance":
-                evaluate_waterbalance(catchment, period_id, start, end, flow_type, directories)  
+                evaluate_waterbalance(catchment, period_id, start, end, directories, flow_type = flow_type)  
 
     else:
         print("Invalid number of argument.\n"

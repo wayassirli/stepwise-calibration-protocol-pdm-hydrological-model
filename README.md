@@ -217,7 +217,14 @@ python main.py BlueCreek 2023-2025 evaluate waterbalance QF
 
 ## 6 Output/Examples
 
-### 6.1 Calibration Target: Recession
+<details>
+<summary>
+
+### 6.1 Calibration Target
+
+</summary>
+
+#### 6.1.1 Recession
 <p align="left">
     <img src="figures/Baseflow_timeseries_BlueCreek_scenario1_2020-2021.png" width="48%">
     <img src="figures/Baseflow_timeseries_BlueCreek_scenario2_2020-2021.png" width="48%">
@@ -228,7 +235,7 @@ python main.py BlueCreek 2023-2025 evaluate waterbalance QF
     <img src="figures/Baseflow_timeseries_BlueCreek_scenario4_2020-2021.png" width="48%">
 </p>
 
-### 6.2 Calibration Target: ET
+#### 6.1.2 ET
 The following figures illustrate ET ratio and soil water depth variation as calibration target of ET submodel parameters.
 
 <p align="left">
@@ -240,7 +247,7 @@ The following figures illustrate ET ratio and soil water depth variation as cali
     <img src="figures/BlueCreek_ETa_vs_ETp_2019_2021.png" width="48%" alt="ETa versus ETp">
 </p>
 
-### 6.3 Calibration Target: Soil
+#### 6.1.3 Soil
 <p align="left">
     <img src="figures/Soilwaterdepth_evaluation_BlueCreek_scenario4_2019_2021.png" width="48%">
     <img src="figures/Soilwaterdepth_evaluation_BlueCreek_scenario7_2019_2021.png" width="48%">
@@ -251,7 +258,8 @@ The following figures illustrate ET ratio and soil water depth variation as cali
     <img src="figures/Soilwaterdepth_evaluation_BlueCreek_scenario9_2019_2021.png" width="48%">
 </p>
 
-### 6.4 Calibration Target: Runoff
+#### 6.1.4 Runoff
+Event-based cumulative runoff volume
 <p align="left">
     <img src="figures/Runoffdepth_evaluation_BlueCreek_scenario4_2019_2021.png" width="80%">
 </p>
@@ -268,17 +276,55 @@ The following figures illustrate ET ratio and soil water depth variation as cali
     <img src="figures/Runoffdepth_evaluation_BlueCreek_scenario9_2019_2021.png" width="80%">
 </p>
 
-### 6.5 Evaluation Method: Statistics
+Baseflow
+<p align="left">
+    <img src="figures/Baseflow_timeseries_BlueCreek_scenario4_2019-2021.png" width="48%">
+    <img src="figures/Baseflow_timeseries_BlueCreek_scenario7_2019-2021.png" width="48%">
+</p>
 
-### 6.6 Evaluation Method: Water Balance
+<p align="left">
+    <img src="figures/Baseflow_timeseries_BlueCreek_scenario8_2019-2021.png" width="48%">
+    <img src="figures/Baseflow_timeseries_BlueCreek_scenario9_2019-2021.png" width="48%">
+</p>
+
+
+</details>
+
+<details>
+<summary>
+
+### 6.2 Evaluation Method
+
+</summary>
+
+#### 6.2.1 Statistics
+Baseflow
+<p align="left">
+    <img src="figures/Baseflow_timeseries_BlueCreek_validation1_2023-2025.png" width="48%">
+    <img src="figures/Baseflow_timeseries_BlueCreek_validation9_2023-2025.png" width="48%">
+</p>
+
+Total Flow
+<p align="left">
+    <img src="figures/Total Flow_timeseries_BlueCreek_validation1_2023-2025.png" width="48%">
+    <img src="figures/Total Flow_timeseries_BlueCreek_validation9_2023-2025.png" width="48%">
+</p>
+
+#### 6.2.1 Water Balance
+
+
+</details>
 
 ## 7 Methodology
 The PDM model was developed by Moore (2007) is calibrated using the protocol developed by Vansteenkiste (2014), which is adapted from the VHM top-down modelling approach by Willems (2014). As part of the calibration protocol, additional time-series pre-processing is done based on Willems (2009). 
 
+<details>
+<summary>
+
 ### 7.1 Probability Distributed Model (PDM)
 
-<details>
-<summary>Show details</summary>
+</summary>
+
 The PDM model structure consists of four following submodels as illustrated in the Figure below.<br>
 <br>
 <p align="left">
@@ -308,17 +354,23 @@ where πᵢ is net rainfall that contributes to water in the soil storage, Pᵢ 
 Instead, the amount of recharge as well as runoff (the amount of water directed to surface storage) are drawn from the excess water proeduced by the saturated soil storages. The parameters for each model control how much water is allocated into recharge according to their own mechanism.
 </details>
 
+<details>
+<summary>
+
 ### 7.2 Time-series Pre-processing
 
-<details>
-<summary>Show details</summary>
+</summary>
+
 Prior to calibration and evaluation, hyrological time-series are pre-processed using WETSPRO (Willems, 2009), resulting in derived information used throughout the calibration and evaluation processes. WETSPRO is used to filter flow into quick flow and baseflow components, extract POT high flows, as well as near-independent quick and slow flow events.
 </details>
 
+<details>
+<summary>
+
 ### 7.3 Step-wise Calibration Protocol
 
-<details>
-<summary>Show details</summary>
+</summary>
+
 The sequence of step-wise protocol implemented for PDM are divided into multiple calibration targets. The structure of VHM modelling approach (Willems, 2014a) allows clear one-on-one sequential calibration between submodels and target variables. However, difference in the conceptualization and representation of hydrological processes in PDM, particularly the stronger interactions between hydrological processes mean that sometimes, one calibration target is used to evaluated multiple submodels at once. For instance, while the soil moisture and runoff in VHM are separately represented with different submodels, they are both represented explicitly by soil storage submodel in PDM. VHM also did not explicitly parameterize recharge while PDM does. The following sections describe the calibration targets and how the PDM submodels are calibrated against them. <br>
 
 #### 7.3.1 Recession
@@ -341,10 +393,13 @@ When standard or demand-based model is selected, runoff also becomes the calibra
 When Splitting model is selected, excess water are splitted into runoff and recharge. Therefore, the quick flow runoff volume is primarly used to calibrate the splitting parameters.
 </details>
 
+<details>
+<summary>
+
 ### 7.4 Overall Performance Evaluation
 
-<details>
-<summary>Show details</summary>
+</summary>
+
 After all submodels are sequentially calibrated, multiple candidate parameter sets are evaluated using the following methods. This tool does not implement the evaluation procedure described in Sections 3.4.3 and 3.4.4 of Vansteenkiste, 2014.<br>
 
 #### 7.4.1 Statistics
